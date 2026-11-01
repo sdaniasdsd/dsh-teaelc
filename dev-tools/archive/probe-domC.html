@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>DONE</title></head><body><pre id="out">palette parent class=palette-container
+btn count=0
+cand=none
+after click: cand class=-
+selected-ish=I.cirjsicon-select-all</pre>
+<script>
+const out=document.getElementById('out'), L=[], log=s=>L.push(s);
+const f=document.createElement('iframe'); f.src='./circuitjs.html?lang=zh';
+f.style='position:absolute;left:-4000px;top:0;width:1200px;height:800px;border:0'; document.body.appendChild(f);
+f.addEventListener('load',()=>{ setTimeout(()=>{
+  const d=f.contentDocument, w=f.contentWindow;
+  const pal=d.querySelector('.palette-container');
+  log('palette parent class='+(pal?pal.className:'none'));
+  const btns=[...d.querySelectorAll('.palette-container button, .palette-container [role="button"], .palette-container div[class*="icon"]')];
+  log('btn count='+btns.length);
+  btns.slice(0,24).forEach((b,i)=>log(' ['+i+'] '+b.tagName+' cls='+b.className+' title='+b.title+' aria='+b.getAttribute('aria-label')+' txt='+b.textContent.trim().slice(0,10)+' svg='+(b.querySelector('svg')?1:0)+' html='+b.innerHTML.slice(0,60).replace(/\s+/g,' ')));
+  const cand = btns.find(b=> (b.title||'').toLowerCase().includes('resistor') || (b.getAttribute('aria-label')||'').toLowerCase().includes('resistor'));
+  log('cand='+(cand?cand.title+'|'+cand.getAttribute('aria-label'):'none'));
+  if(cand){ cand.click(); }
+  setTimeout(()=>{
+    log('after click: cand class='+(cand?cand.className:'-'));
+    const sel=[...d.querySelectorAll('*')].filter(x=>x.className && String(x.className).includes('select')).slice(0,5).map(x=>x.tagName+'.'+x.className);
+    log('selected-ish='+sel.join(','));
+    out.textContent=L.join('\n'); document.title='DONE';
+  }, 600);
+}, 6000); });
+</script><iframe src="./circuitjs.html?lang=zh" style="position: absolute; left: -4000px; top: 0px; width: 1200px; height: 800px; border: 0px;"></iframe>
+</body></html>

@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>DONE</title></head><body><pre id="out">spans=44 icons=&lt;svg xmlns="http://www.w3.org/2000/svg"  || &lt;svg xmlns="http://www.w3.org/2000/svg"  || &lt;svg xmlns="http://www.w3.org/2000/svg"  || &lt;svg xmlns="http://www.w3.org/2000/svg"  || &lt;svg xmlns="http://www.w3.org/2000/svg"  || &lt;svg xmlns="http://www.w3.org/2000/svg"  || &lt;svg xmlns="http://www.w3.org/2000/svg"  || &lt;svg xmlns="http://www.w3.org/2000/svg" 
+i-icons=cirjsicon-doc-new,cirjsicon-folder,cirjsicon-doc-text,cirjsicon-dropbox,cirjsicon-floppy,cirjsicon-export,cirjsicon-export,cirjsicon-image,cirjsicon-image,cirjsicon-image,cirjsicon-microchip,cirjsicon-magic,cirjsicon-back-in-time,cirjsicon-print,cirjsicon-resize-full-alt,cirjsicon-info-circled,cirjsicon-reply,cirjsicon-forward,cirjsicon-scissors,cirjsicon-copy,cirjsicon-paste,cirjsicon-clone,cirjsicon-select-all,cirjsicon-search,cirjsicon-target,cirjsicon-zoom-11,cirjsicon-zoom-in,cirjsicon-zoom-out,cirjsicon-flip-x,cirjsicon-flip-y,cirjsicon-ccw,cirjsicon-cw,cirjsicon-lines,cirjsicon-columns,cirjsicon-object-group,cirjsicon-object-ungroup</pre>
+<script>
+const out=document.getElementById('out'), L=[], log=s=>L.push(s);
+const f=document.createElement('iframe'); f.src='./circuitjs.html?lang=zh';
+f.style='position:absolute;left:0;top:0;width:1200px;height:800px;border:0'; document.body.appendChild(f);
+f.addEventListener('load',()=>{ setTimeout(()=>{
+  const d=f.contentDocument, w=f.contentWindow;
+  const spans=[...d.querySelectorAll('span[title]')];
+  log('spans='+spans.length+' icons='+spans.map(s=>s.innerHTML.slice(0,40).replace(/\s+/g,' ')).slice(0,8).join(' || '));
+  const ico=[...d.querySelectorAll('i[class*=cirjsicon]')].map(i=>i.className);
+  log('i-icons='+ico.join(','));
+  out.textContent=L.join('\n'); document.title='DONE';
+}, 6000); });
+</script><iframe src="./circuitjs.html?lang=zh" style="position: absolute; left: 0px; top: 0px; width: 1200px; height: 800px; border: 0px;"></iframe>
+</body></html>

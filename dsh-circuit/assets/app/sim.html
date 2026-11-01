@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>电路小实验 · 电路模拟器</title>
+<meta name="generator" content="CircuitJS1 (Paul Falstad / Iain Sharp, GPL-2.0) — wrapped by dsh-circuit">
+<link rel="stylesheet" href="./panel.css">
+<style>
+  html,body{height:100%;margin:0;background:#0d1117;color:#e6edf3}
+  body{display:flex;font-family:"Microsoft YaHei",system-ui,sans-serif}
+  #stage{flex:1;min-width:0;position:relative;background:#000}
+  #simframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+  #panel{width:380px;flex:0 0 380px;border-left:1px solid #22303c;overflow:auto}
+</style>
+</head>
+<body>
+<div id="stage"><iframe id="simframe" src="./circuitjs.html" allow="clipboard-read; clipboard-write"></iframe></div>
+<aside id="panel"></aside>
+<script src="./panel.js"></script>
+</body>
+</html>

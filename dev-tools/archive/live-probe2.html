@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>DONE</title></head><body>
+<iframe id="shell" src="/dsh-circuit/" style="width:1400px;height:980px;border:0"></iframe>
+<pre id="out">=== 闭合电路读数 ===
+  面板行数=5（内核元件 5）
+   · 电压源  电压 10.000 V  电流 50.00 mA
+   · 电阻  电压 -5.000 V  电流 -50.00 mA
+   · 电阻  电压 -5.000 V  电流 -50.00 mA
+   · 导线  电压 0  电流 50.00 mA
+   · 接地  电压 0  电流 0
+=== 波形通道 ===
+  通道 chips: 电阻 电压×
+  画布像素: 已绘制 6442 / 总 58296，彩色曲线像素 198
+  scopeMeta: 最近读数：-5.000 V
+=== 挑战校验 ===
+   ✓找到 2 个电阻
+   ✓两个电阻分压基本相等
+  通过 2 / 2</pre>
+<script>
+const out=document.getElementById('out'), L=[], log=s=>L.push(s);
+const shell=document.getElementById('shell');
+shell.addEventListener('load',()=>{
+  setTimeout(()=>{
+   try{
+    const p=shell.contentDocument, sim=p.getElementById('simframe'), sd=sim.contentDocument;
+    const api=sim.contentWindow.CircuitJS1;
+    (async()=>{
+      // 用一个真实闭合回路验证读数与波形
+      const NET='$ 1 5.0E-6 10 50 5.0 50\n'+
+        'v 200 160 200 360 0 0 40.0 10.0 0.0 0.0 0.5\n'+
+        'r 200 160 400 160 0 100.0\n'+
+        'r 400 160 400 360 0 100.0\n'+
+        'w 200 360 400 360 0\n'+
+        'g 400 360 400 390 0\n';
+      api.importCircuit(NET,false);
+      await new Promise(r=>setTimeout(r,1200));
+      log('=== 闭合电路读数 ===');
+      const rows=[...p.querySelectorAll('table.dc-table tbody tr')];
+      log('  面板行数='+rows.length+'（内核元件 '+api.getElements().length+'）');
+      rows.forEach(r=>log('   · '+r.children[0].textContent+'  电压 '+r.children[1].textContent+'  电流 '+r.children[2].textContent));
+      log('=== 波形通道 ===');
+      const rrow=[...p.querySelectorAll('table.dc-table tbody tr')].find(r=>r.children[0].textContent.includes('电阻'));
+      const vb=[...rrow.querySelectorAll('.dc-add-ch')].find(b=>b.textContent.includes('电压'));
+      vb.click();
+      await new Promise(r=>setTimeout(r,1500));
+      log('  通道 chips: '+[...p.querySelectorAll('.dc-chip')].map(c=>c.textContent.trim()).join(' | '));
+      const cv=p.querySelector('canvas.dc-scope');
+      const cctx=cv.getContext('2d');
+      const data=cctx.getImageData(0,0,cv.width,cv.height).data;
+      let painted=0, colored=0;
+      for(let i=0;i<data.length;i+=4){
+        if(data[i]>25||data[i+1]>25||data[i+2]>35) painted++;
+        if(data[i+1]>90 && data[i]>40) colored++;   // 绿色通道曲线
+      }
+      log('  画布像素: 已绘制 '+painted+' / 总 '+(data.length/4)+'，彩色曲线像素 '+colored);
+      log('  scopeMeta: '+(p.querySelector('.dc-scope-meta')?p.querySelector('.dc-scope-meta').textContent:'-'));
+      log('=== 挑战校验 ===');
+      const chal=[...p.querySelectorAll('.dc-chal')].find(c=>c.textContent.includes('串联分压'));
+      chal.click();
+      await new Promise(r=>setTimeout(r,300));
+      const ck=[...p.querySelectorAll('.dc-btn')].find(b=>b.textContent.includes('检查'));
+      ck.click();
+      await new Promise(r=>setTimeout(r,600));
+      [...p.querySelectorAll('.dc-check-row')].forEach(r=>log('   '+r.textContent.trim()));
+      const okAll=[...p.querySelectorAll('.dc-check-icon.ok')].length;
+      log('  通过 '+okAll+' / '+state_count(p));
+      out.textContent=L.join('\n'); document.title='DONE';
+    })().catch(e=>{log('ERR '+e.message); out.textContent=L.join('\n'); document.title='DONE';});
+    function state_count(panel){ return panel.querySelectorAll('.dc-check-row').length; }
+   }catch(e){ log('OUTER ERR '+e.message); out.textContent=L.join('\n'); document.title='DONE'; }
+  }, 12000);
+});
+</script>
+</body></html>

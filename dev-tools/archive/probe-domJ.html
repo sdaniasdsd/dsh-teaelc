@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"></head><body><pre id="out">pending</pre>
+<script>
+const out=document.getElementById('out'), L=[], log=s=>L.push(s);
+const f=document.createElement('iframe'); f.src='./circuitjs.html?lang=zh';
+f.style='position:absolute;left:-4000px;top:0;width:1200px;height:800px;border:0'; document.body.appendChild(f);
+f.addEventListener('load',()=>{ setTimeout(()=>{
+  const d=f.contentDocument, w=f.contentWindow;
+  const cvs=[...d.querySelectorAll('canvas')].sort((a,b)=>b.width-a.width)[0];
+  const rect=cvs.getBoundingClientRect();
+  const drag=(x,y,dx=60)=>{ cvs.dispatchEvent(new MouseEvent('mousedown',{bubbles:true,clientX:rect.left+x,clientY:rect.top+y,button:0}); cvs.dispatchEvent(new MouseEvent('mousemove',{bubbles:true,clientX:rect.left+x+dx,clientY:rect.top+y})); cvs.dispatchEvent(new MouseEvent('mouseup',{bubbles:true,clientX:rect.left+x+dx,clientY:rect.top+y})); };
+  function addByLabel(label){
+    const drawItem=[...d.querySelectorAll('.gwt-MenuItem')].find(x=>x.textContent.trim().startsWith('绘制'));
+    if(!drawItem) return false;
+    drawItem.dispatchEvent(new MouseEvent('click',{bubbles:true}));
+    return true;
+  }
+  // force-open submenu 输出与标注 by clicking it
+  const open=(label)=>{
+    const it=[...d.querySelectorAll('.menuItem')].find(x=>x.textContent.trim().startsWith(label));
+    if(it){ it.dispatchEvent(new MouseEvent('mouseover',{bubbles:true})); it.dispatchEvent(new MouseEvent('click',{bubbles:true})); return true; }
+    return false;
+  };
+  addByLabel('绘制');
+  setTimeout(()=>{
+    log('opened submenu 输出与标注: ' + open('✓输出与标注'));
+    setTimeout(()=>{
+      const am=[...d.querySelectorAll('.menuItem')].find(x=>x.textContent.trim()==='✓ Add Ammeter' || x.textContent.trim().endsWith('Add Ammeter'));
+      log('ammeter='+(am?am.textContent.trim():'missing'));
+      if(am) am.dispatchEvent(new MouseEvent('click',{bubbles:true}));
+      setTimeout(()=>{
+        drag(420,300);
+        setTimeout(()=>{ log('types='+w.CircuitJS1.getElements().map(e=>e.getType()).join(','));
+          out.textContent=L.join('\n'); document.title='DONE'; },900);
+      },400);
+    }, 500);
+  }, 500);
+}, 6000); });
+</script>
+</body></html>

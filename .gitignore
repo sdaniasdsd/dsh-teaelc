@@ -1,0 +1,24 @@
+# 构建 / 依赖
+node_modules/
+*.log
+.DS_Store
+Thumbs.db
+
+# 可再生成的渲染产物：宣传片逐帧序列与质检抽帧（由 promo/render.js 与 promo/qc 脚本重新生成）
+promo/out/
+promo/smoke/
+
+# 开发期的浏览器测试工作区（含本机 Chrome 测试配置，体积 1.7 GB，与项目代码无关）
+dev-tools/dev/
+
+# 打包 / 快照
+*.zip
+*.7z
+*.tar.gz
+
+# 沙箱 ACL 排障产出的临时备份与报告
+acl-recovery/acl-backup-*
+acl-recovery/acl-report-*
+
+# 探针临时文件
+probe.txt

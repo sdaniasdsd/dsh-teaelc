@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>电路小实验 — DSH 插件 65s</title>
+<style>
+@font-face{font-family:'JetBrains Mono';src:url(fonts/jetbrains-mono-latin-400-normal.woff2) format('woff2');font-weight:400}
+@font-face{font-family:'JetBrains Mono';src:url(fonts/jetbrains-mono-latin-700-normal.woff2) format('woff2');font-weight:700}
+@font-face{font-family:'Instrument Serif';src:url(fonts/instrument-serif-latin-400-normal.woff2) format('woff2');font-weight:400}
+
+:root{
+  --paper:#05080f; --card:#141519; --card2:#1b1c22;
+  --ink:#f2f4f8; --ink2:#c7cbd6; --mut:#7d8494; --muted2:#98a3b3; --line:#26272e; --line2:#33353e;
+  --blue:#5b79ff; --blueSoft:#1a2140; --blueLine:#2c3a6e;
+  --acc:#9fb0f0; --accSoft:#1c2340;
+  --green:#4fae6e; --amber:#d99a3d;
+  --sans:'Segoe UI','Microsoft YaHei',system-ui,sans-serif;
+  --mono:'JetBrains Mono',Consolas,monospace;
+  --shadow:0 60px 130px rgba(0,0,0,.6),0 22px 48px rgba(0,0,0,.45),0 4px 14px rgba(0,0,0,.4);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:1920px;height:1080px;overflow:hidden}
+body{background:var(--paper);font-family:var(--sans);color:var(--ink);-webkit-font-smoothing:antialiased}
+
+#stage{position:absolute;inset:0;overflow:hidden;
+  background:
+    radial-gradient(1250px 760px at 22% 4%,rgba(20,38,84,.55),rgba(20,38,84,0) 62%),
+    radial-gradient(1300px 860px at 86% 98%,rgba(52,32,84,.38),rgba(52,32,84,0) 60%),
+    radial-gradient(900px 560px at 70% 30%,rgba(14,22,48,.35),rgba(14,22,48,0) 65%),
+    var(--paper);}
+#world{position:absolute;inset:0;will-change:transform,filter}
+#scrim{position:absolute;inset:0;pointer-events:none;z-index:30;
+  background:linear-gradient(90deg,rgba(3,5,10,.92) 0%,rgba(3,5,12,.55) 34%,rgba(4,6,14,0) 62%)}
+#vignette{position:absolute;inset:0;pointer-events:none;z-index:60;
+  background:radial-gradient(130% 100% at 50% 42%,rgba(0,0,0,0) 55%,rgba(0,0,0,.34) 100%)}
+#grain{position:absolute;inset:-80px;pointer-events:none;z-index:61;opacity:.035;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23n)'/%3E%3C/svg%3E")}
+#fade{position:absolute;inset:0;background:#04060c;opacity:0;pointer-events:none;z-index:70}
+
+/* ---- 舞台装饰 ---- */
+#deco{position:absolute;inset:0;pointer-events:none}
+#deco .glowring{position:absolute;left:110px;top:120px;width:1700px;height:880px;border-radius:50%;
+  background:radial-gradient(52% 48% at 50% 52%,rgba(72,96,200,.16),rgba(72,96,200,.05) 55%,rgba(0,0,0,0) 75%);
+  filter:blur(6px)}
+#deco .floor{position:absolute;left:330px;top:942px;width:1260px;height:120px;border-radius:50%;
+  background:radial-gradient(50% 50% at 50% 50%,rgba(40,58,130,.34),rgba(0,0,0,0) 72%);filter:blur(10px)}
+#deco .shape{position:absolute;border:1.5px solid rgba(122,142,222,.11);border-radius:40px}
+#deco .s1{left:38px;top:648px;width:430px;height:300px;transform:rotate(-14deg)}
+#deco .s2{left:1520px;top:96px;width:350px;height:250px;transform:rotate(10deg);border-color:rgba(122,142,222,.08)}
+#deco .s3{left:170px;top:130px;width:250px;height:190px;transform:rotate(22deg);border-color:rgba(122,142,222,.06)}
+
+/* ---- 悬浮窗口（真实录屏装在里面） ---- */
+#win{position:absolute;left:100px;top:16px;width:1720px;height:908px;border-radius:24px;background:var(--card);
+  border:1px solid rgba(255,255,255,.08);box-shadow:var(--shadow);overflow:hidden;will-change:transform,opacity}
+#tbar{position:absolute;left:0;top:0;width:100%;height:38px;background:var(--card2);border-bottom:1px solid var(--line);
+  display:flex;align-items:center;padding:0 16px;font-size:12.5px;color:var(--mut);gap:14px;z-index:2}
+#tbar b{color:var(--ink);font-size:13px}
+#tbar .winbtns{margin-left:auto;display:flex;gap:8px}
+#tbar .winbtns i{width:11px;height:11px;border-radius:3px;background:#3a3c46;display:block}
+#shots{position:absolute;left:0;top:38px;width:1720px;height:870px;background:#000}
+#shots video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000}
+#shots .ph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  color:#3d4657;font-family:var(--mono);font-size:13px;letter-spacing:.1em}
+#winlight{position:absolute;inset:0;pointer-events:none;border-radius:24px;
+  background:linear-gradient(165deg,rgba(120,150,255,.05),rgba(0,0,0,0) 40%)}
+
+/* ---- 字幕（底部条带，不压窗口） ---- */
+.cap{position:absolute;left:0;width:1920px;z-index:40;opacity:0;
+  display:flex;flex-direction:column;align-items:center;text-align:center}
+.cap .kicker{font-family:var(--mono);font-size:11.5px;letter-spacing:.26em;color:var(--acc);margin-bottom:10px}
+.cap .h1{font-size:40px;font-weight:800;line-height:1.14;letter-spacing:-.01em}
+.cap .h1 em{font-style:normal;color:var(--acc)}
+.cap .desc{font-size:14.5px;line-height:1.5;color:var(--muted2);margin-top:9px}
+
+/* ---- 大字卡 ---- */
+.bigcard{position:absolute;left:1022px;top:150px;width:830px;z-index:48;
+  background:linear-gradient(165deg,#131a30,#0f1526 55%,#0d1220);
+  border:1px solid rgba(90,110,190,.32);border-radius:30px;padding:44px 46px;opacity:0}
+.bigcard .kicker{font-family:var(--mono);font-size:12px;letter-spacing:.2em;color:var(--acc);margin-bottom:18px}
+.bigcard .h{font-size:46px;font-weight:800;line-height:1.18;margin-bottom:26px}
+.bigcard .h em{font-style:normal;color:var(--acc)}
+
+/* ---- 片头/片尾卡 ---- */
+.tcard{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  z-index:50;opacity:0}
+.tcard .logo{width:110px;height:110px;border-radius:30px;background:#141a2b;border:1px solid rgba(120,150,255,.35);
+  box-shadow:0 0 60px rgba(91,121,255,.35);display:flex;align-items:center;justify-content:center;margin-bottom:34px}
+.tcard .logo svg{width:62px;height:62px}
+.tcard .title{font-size:76px;font-weight:800;letter-spacing:-.02em}
+.tcard .tag{font-size:19px;color:var(--ink2);margin-top:18px;letter-spacing:.04em}
+.tcard .foot{position:absolute;bottom:90px;font-family:var(--mono);font-size:12px;color:var(--mut);letter-spacing:.16em}
+.kw{display:inline-block;margin:0 10px;font-size:15px;color:var(--acc);font-family:var(--mono);opacity:0}
+
+/* ---- 光标 ---- */
+#cursor{position:absolute;width:22px;height:22px;z-index:55;opacity:0;pointer-events:none;
+  transform:translate(-50%,-50%)}
+#cursor svg{width:22px;height:22px}
+#ring{position:absolute;width:44px;height:44px;border-radius:50%;border:2px solid rgba(120,160,255,.85);
+  z-index:54;opacity:0;pointer-events:none;transform:translate(-50%,-50%)}
+
+/* ---- 音效/节奏用的气泡 ---- */
+.metric{position:absolute;z-index:47;background:rgba(18,24,42,.92);border:1px solid rgba(90,110,190,.3);
+  border-radius:14px;padding:14px 18px;opacity:0;font-family:var(--mono)}
+.metric .lab{font-size:11px;color:var(--mut);letter-spacing:.1em}
+.metric .val{font-size:26px;font-weight:700;margin-top:4px;color:var(--ink)}
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="deco">
+    <div class="glowring"></div><div class="floor"></div>
+    <div class="shape s1"></div><div class="shape s2"></div><div class="shape s3"></div>
+  </div>
+  <div id="world">
+    <div id="win">
+      <div id="tbar">
+        <b>电路小实验</b><span>Circuit Lab · DSH Plugin</span>
+        <div class="winbtns"><i></i><i></i><i></i></div>
+      </div>
+      <div id="shots">
+        <div class="ph">CAPTURE</div>
+      </div>
+      <div id="winlight"></div>
+    </div>
+  </div>
+  <div id="scrim"></div>
+
+  <!-- 字幕组（12 个分节各一个） -->
+  <div class="cap" id="c0"><div class="kicker">PHYSICS · CIRCUIT</div><div class="h1">电路在纸上，<em>不会动。</em></div></div>
+  <div class="cap r" id="c2"><div class="kicker">00 · DRAG & PLACE</div><div class="h1">拖个元件，<em>回路就通了</em></div><div class="desc">18 种元件按需摆放</div></div>
+  <div class="cap" id="c3"><div class="kicker">01 · LIVE READOUT</div><div class="h1">每个元件，<em>都在说话</em></div><div class="desc">电压 · 电流 · 实时仿真</div></div>
+  <div class="cap r" id="c4"><div class="kicker">02 · WAVEFORM</div><div class="h1">电压表看不到<em>变化</em></div><div class="desc">示波器记的是"怎么变"</div></div>
+  <div class="cap" id="c5"><div class="kicker">03 · OSCILLOSCOPE</div><div class="h1">电压 · 电流 ·<em>电位差</em></div><div class="desc">三通道一屏看全</div></div>
+  <div class="cap r" id="c7"><div class="kicker">05 · PRESETS</div><div class="h1">初中到大学，<em>23 个经典电路</em></div><div class="desc">点开就能拆</div></div>
+  <div class="cap" id="c9"><div class="kicker">07 · ZOOM BOX</div><div class="h1">想看细节？<em>拉个框</em></div><div class="desc">框选放大 · 滚轮缩放</div></div>
+  <div class="cap r" id="c10"><div class="kicker">LIVE · REAL DEMO</div><div class="h1">欧姆定律，<em>自己看得见</em></div><div class="desc">真实操作 · 实时波形</div></div>
+
+  <!-- 大字卡 -->
+  <div class="bigcard" id="card1">
+    <div class="kicker">04 · FLOATING WINDOWS</div>
+    <div class="h">窗口随便拖，<br><em>随便拉</em></div>
+    <div style="font-family:var(--mono);font-size:13px;color:var(--mut);line-height:1.9">
+      元件快选 · 测量台 · 示波器 · 经典电路<br>四个独立窗口，互不遮挡
+    </div>
+  </div>
+  <div class="bigcard" id="card2">
+    <div class="kicker">06 · PRESET LIBRARY</div>
+    <div class="h">点开<br><em>就能拆</em></div>
+    <div style="font-family:var(--mono);font-size:13px;color:var(--mut);line-height:1.9">
+      初中 · 欧姆定律 / 串并联 / 分压<br>
+      高中 · LRC 谐振 / 戴维南定理<br>
+      大学 · 运放 / 全波整流
+    </div>
+  </div>
+
+  <!-- 片头卡 -->
+  <div class="tcard" id="titlecard">
+    <div class="logo">
+      <svg viewBox="0 0 24 24" fill="none">
+        <path d="M3 12h3.5M17.5 12H21" stroke="#9fb0f0" stroke-width="2" stroke-linecap="round"/>
+        <path d="M6.5 7.5v9M17.5 7.5v9" stroke="#9fb0f0" stroke-width="2" stroke-linecap="round"/>
+        <path d="M10 12h4" stroke="#9fb0f0" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    </div>
+    <div class="title">电路小实验</div>
+    <div class="tag">一个 DeepSeek Harness 插件</div>
+    <div class="foot">CIRCUIT LAB · FOR JUNIOR / SENIOR / COLLEGE</div>
+  </div>
+
+  <!-- 片尾卡 -->
+  <div class="tcard" id="endcard">
+    <div class="logo" style="width:96px;height:96px;margin-bottom:30px">
+      <svg viewBox="0 0 24 24" fill="none">
+        <path d="M3 12h3.5M17.5 12H21" stroke="#9fb0f0" stroke-width="2" stroke-linecap="round"/>
+        <path d="M6.5 7.5v9M17.5 7.5v9" stroke="#9fb0f0" stroke-width="2" stroke-linecap="round"/>
+        <path d="M10 12h4" stroke="#9fb0f0" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    </div>
+    <div style="font-size:44px;font-weight:800;line-height:1.3;text-align:center;max-width:1100px">
+      书上的公式，落到<br>波形和数值里，<em style="color:var(--acc);font-style:normal">不再陌生</em>
+    </div>
+    <div style="margin-top:34px">
+      <span class="kw" id="kw0">欧姆定律</span>
+      <span class="kw" id="kw1">示波器</span>
+      <span class="kw" id="kw2">电位差</span>
+      <span class="kw" id="kw3">经典电路</span>
+    </div>
+    <div style="margin-top:44px;display:inline-flex;align-items:center;gap:10px;height:46px;padding:0 26px;
+      border-radius:999px;background:var(--blue);font-size:15px;font-weight:700">DSH 插件 · 电路小实验</div>
+    <div class="foot">CIRCUITJS1 · GPL-2.0 · 开源仿真内核</div>
+  </div>
+
+  <div id="ring"></div>
+  <div id="cursor">
+    <svg viewBox="0 0 24 24"><path d="M4 2l14 9-6 1.4 3.2 6.6-2.6 1.3-3.2-6.7L4 18z" fill="#fff" stroke="#111" stroke-width="1"/></svg>
+  </div>
+  <div id="vignette"></div>
+  <div id="grain"></div>
+  <div id="fade"></div>
+</div>
+
+<script>
+/* ============================================================
+ * 确定性时间轴：window.__seek(t) 纯函数，同一 t 结果恒定
+ * ============================================================ */
+const B0 = 0.116, BEAT = 0.65, BAR = 2.6;
+const CUTS=[0,4.016,6.616,13.766,19.616,24.816,30.016,33.916,39.116,43.016,46.916,55.366,63.166];
+// 点击音效点（对应 film.html 里光标落点时刻）
+const CLICKS=[0.9,2.6,7.5,7.9,14.7,20.8,25.8,26.9,31.2,35.3,39.5,44.6,48.2,49.4];
+// 轻触音效点（元件落下/读数跳动）
+const TICKS=[7.55,8.05,8.55,15.2,21.5,26.3,36.0,44.9];
+window.__CLICKS=CLICKS; window.__TICKS=TICKS;;
+const DUR = 65;
+window.__FPS = 30; window.__DUR = DUR; window.__CUTS = CUTS;
+
+const T_TITLE = 4.016, T_00 = 6.616, T_01 = 13.766, T_02 = 19.616,
+      T_03 = 24.816, T_C1 = 30.016, T_05 = 33.916, T_C2 = 39.116,
+      T_07 = 43.016, T_LIVE = 46.916, T_END = 55.366, T_OUT = 63.166;
+
+/* 录屏分节表：每段用哪支录屏、从第几秒开始播 */
+const SHOTS = [
+  { a: T_00,   b: T_01,   src: '00-place',   at: 0.6 },
+  { a: T_01,   b: T_02,   src: '01-readout', at: 1.4 },
+  { a: T_02,   b: T_03,   src: '02-wave',    at: 2.0 },
+  { a: T_03,   b: T_C1,   src: '02-wave',    at: 6.2 },
+  { a: T_05,   b: T_C2,   src: '05-presets', at: 1.2 },
+  { a: T_07,   b: T_LIVE, src: '07-zoombox', at: 3.0 },
+  { a: T_LIVE, b: T_END,  src: 'live',       at: 1.2 },
+];
+
+const E = {
+  outQuint: x => 1 - Math.pow(1 - x, 5),
+  inOut: x => x < 0.5 ? 16*x*x*x*x*x : 1 - Math.pow(-2*x+2,5)/2,
+  outBack: x => { const c1=1.70158,c3=c1+1; return 1+c3*Math.pow(x-1,3)+c1*Math.pow(x-1,2) },
+  inOutCubic: x => x<.5 ? 4*x*x*x : 1-Math.pow(-2*x+2,3)/2,
+};
+const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+const seg = (t,a,b,easing=E.inOut)=>easing(clamp((t-a)/(b-a||1),0,1));
+const mix = (a,b,k)=>a+(b-a)*k;
+const T = (el,p)=>{ for(const k in p){ if(k==='o') el.style.opacity=p.o; else if(k==='x') el.style.transform=`translateX(${p.x}px)`; } };
+
+/* ---------- 视频宿主 ---------- */
+const shotsHost = document.getElementById('shots');
+const videos = {};
+const SHOT_NAMES = ['00-place','01-readout','02-wave','05-presets','07-zoombox','live'];
+for (const n of SHOT_NAMES) {
+  const v = document.createElement('video');
+  v.src = `media/${n}.mp4`;
+  v.muted = true; v.playsInline = true; v.preload = 'auto';
+  v.style.display = 'none';
+  shotsHost.appendChild(v);
+  videos[n] = v;
+}
+
+function activeShot(t) {
+  for (const s of SHOTS) if (t >= s.a && t < s.b) return s;
+  return null;
+}
+
+/* ---------- 摄像机 ---------- */
+const world = document.getElementById('world');
+const scrimEl = document.getElementById('scrim');
+const RCAP = { c2:1, c4:1, c7:1, c10:1 };   // 右侧字幕段
+
+function camFor(t) {
+  // 窗口已铺满安全区（40~1880 / 20~930），字幕独占底部 946~1046。
+  // 镜头只做**轻微视差**，不再大幅缩放，避免露出黑边。
+  let cx = 1920, s = 1.0;
+
+  if (t < T_TITLE) {
+    cx = 1890; s = 1.02;                                  // 钩子
+  } else if (t < T_00) {
+    cx = 1920; s = mix(1.02, 0.92, seg(t, T_TITLE, T_TITLE + 1.2));   // 标题卡拉远
+  } else if (t < T_02) {
+    cx = 1900; s = 1.0;                                   // 00/01
+  } else if (t < T_03) {
+    cx = 1940; s = 1.0;                                   // 02
+  } else if (t < T_C1) {
+    cx = 1900; s = 1.0;                                   // 03
+  } else if (t < T_C2) {
+    cx = 1900; s = 0.98;                                  // 卡1
+  } else if (t < T_07) {
+    cx = 1940; s = 1.0;                                   // 05
+  } else if (t < T_LIVE) {
+    cx = 1900; s = 1.0;                                   // 07
+  } else if (t < T_END) {
+    cx = 1940; s = 1.0;                                   // 实测
+  } else {
+    cx = 1920; s = mix(1.0, 0.88, seg(t, T_END, T_END + 1.4));        // 片尾
+  }
+  return { cx, s };
+}
+
+/* ---------- seek ---------- */
+window.__seek = function (t) {
+  // --- 摄像机 ---
+  const cam = camFor(t);
+  world.style.transformOrigin = '960px 540px';
+  world.style.transform = `translate(${1920 - cam.cx}px, -26px) scale(${cam.s})`;
+  let blur = 0;
+  if (t < 2.0) blur = mix(10, 0, seg(t, 0, 2.0));
+  world.style.filter = blur ? `blur(${blur}px)` : 'none';
+
+  // --- 窗口反向漂移 ---
+  const win = document.getElementById('win');
+  const drift = Math.sin(t * 0.62) * 13;
+  win.style.transform = `translate(${-drift}px, 0px)`;
+
+  // --- 滚动 / 卡片压暗 ---
+  const cardDim = (a,b,c,d) => seg(t,a,b) * (1 - seg(t,c,d));
+  const dim1 = cardDim(T_C1, T_C1+0.5, T_C2-0.3, T_C2);
+  const dim2 = cardDim(T_C2, T_C2+0.5, T_07-0.3, T_07);
+  const dim = Math.max(dim1, dim2);
+  world.style.filter = (blur ? `blur(${blur}px) ` : '') +
+    (dim > 0 ? `brightness(${1 - 0.42 * dim})` : '');
+
+  // --- 录屏切换 ---
+  const shot = activeShot(t);
+  for (const n of SHOT_NAMES) {
+    const v = videos[n];
+    if (!shot || shot.src !== n) { v.style.display = 'none'; if(!v.paused) v.pause(); continue; }
+    v.style.display = 'block';
+    const want = shot.at + (t - shot.a);
+    if (Math.abs(v.currentTime - want) > 0.35) {
+      try { v.currentTime = want; } catch {}
+    }
+    if (v.paused) { v.play().catch(() => {}); }
+  }
+
+  // --- 字幕 ---
+  const caps = [
+    { el: 'c0', a: 0.3, b: T_TITLE - 0.2, in: 'left' },
+    { el: 'c2', a: T_00 + 0.25, b: T_01 - 0.15, in: 'right' },
+    { el: 'c3', a: T_01 + 0.25, b: T_02 - 0.15, in: 'left' },
+    { el: 'c4', a: T_02 + 0.25, b: T_03 - 0.15, in: 'right' },
+    { el: 'c5', a: T_03 + 0.25, b: T_C1 - 0.15, in: 'left' },
+    { el: 'c7', a: T_05 + 0.25, b: T_C2 - 0.15, in: 'right' },
+    { el: 'c9', a: T_07 + 0.25, b: T_LIVE - 0.15, in: 'left' },
+    { el: 'c10',a: T_LIVE + 0.25, b: T_END - 0.15, in: 'right' },
+  ];
+  for (const c of caps) {
+    const el = document.getElementById(c.el);
+    if (!el) continue;
+    const ki = seg(t, c.a, c.a + 0.5, E.outQuint);
+    const ko = 1 - seg(t, c.b - 0.45, c.b, E.inOut);
+    const on = t >= c.a && t <= c.b;
+    el.style.opacity = on ? (ki * ko) : 0;
+    const dy = mix(16, 0, ki);
+    el.style.transform = `translateY(${dy}px)`;
+    el.style.top = '946px';
+  }
+  // 字幕段镜像 scrim
+  const flip = (t >= T_00 && t < T_01) || (t >= T_02 && t < T_03) ||
+               (t >= T_05 && t < T_C2) || (t >= T_LIVE && t < T_END);
+  scrimEl.style.transform = flip ? 'scaleX(-1)' : 'none';
+
+  // --- 大字卡 ---
+  const c1 = document.getElementById('card1');
+  const k1 = E.outBack(seg(t, T_C1 + 0.15, T_C1 + 0.75));
+  const k1o = 1 - seg(t, T_C2 - 0.4, T_C2 - 0.05);
+  c1.style.opacity = (t >= T_C1 + 0.1 && t <= T_C2) ? k1o : 0;
+  c1.style.transform = `translate(${mix(96,0,k1)}px, ${mix(14,0,k1)}px) scale(${mix(0.965,1,k1)})`;
+
+  const c2 = document.getElementById('card2');
+  const k2 = E.outBack(seg(t, T_C2 + 0.15, T_C2 + 0.75));
+  const k2o = 1 - seg(t, T_07 - 0.4, T_07 - 0.05);
+  c2.style.opacity = (t >= T_C2 + 0.1 && t <= T_07) ? k2o : 0;
+  c2.style.transform = `translate(${mix(96,0,k2)}px, ${mix(14,0,k2)}px) scale(${mix(0.965,1,k2)})`;
+
+  // --- 片头卡 ---
+  const tc = document.getElementById('titlecard');
+  const ta = seg(t, T_TITLE + 0.1, T_TITLE + 0.8, E.outBack);
+  const to = 1 - seg(t, T_00 - 0.5, T_00 - 0.1);
+  tc.style.opacity = (t >= T_TITLE && t <= T_00) ? Math.min(ta, to) : 0;
+  tc.style.transform = `scale(${mix(0.94,1,ta)})`;
+
+  // --- 片尾卡 ---
+  const ec = document.getElementById('endcard');
+  const ea = seg(t, T_END + 0.1, T_END + 0.9, E.outQuint);
+  ec.style.opacity = t >= T_END ? ea : 0;
+  // 关键词逐拍
+  for (let i = 0; i < 4; i++) {
+    const kw = document.getElementById('kw' + i);
+    if (!kw) continue;
+    const kt = T_END + 1.2 + 0.65 * i;
+    const ki2 = seg(t, kt, kt + 0.45, E.outQuint);
+    kw.style.opacity = ki2;
+    kw.style.transform = `translateY(${mix(12,0,ki2)}px)`;
+  }
+
+  // --- 光标（指向操作区） ---
+  const cur = document.getElementById('cursor');
+  const ring = document.getElementById('ring');
+  // 每段一个目标位置（窗口内坐标 → 舞台坐标）
+  const CUR = [
+    { t: T_00 + 0.9,  x: 560, y: 640 },
+    { t: T_00 + 2.6,  x: 780, y: 640 },
+    { t: T_01 + 1.0,  x: 620, y: 700 },
+    { t: T_02 + 1.2,  x: 700, y: 330 },
+    { t: T_03 + 1.0,  x: 760, y: 330 },
+    { t: T_05 + 1.2,  x: 1180, y: 260 },
+    { t: T_07 + 1.6,  x: 700, y: 340 },
+    { t: T_LIVE + 1.3, x: 1180, y: 260 },
+  ];
+  let curOn = false, cxp = 0, cyp = 0;
+  for (let i = 0; i < CUR.length; i++) {
+    const c = CUR[i];
+    const span = 0.9;
+    const k = clamp((t - c.t) / span, 0, 1);
+    if (t >= c.t && t <= c.t + 1.9) {
+      curOn = true;
+      const prev = i > 0 ? CUR[i-1] : c;
+      const px = mix(prev.x, c.x, E.outQuint(k));
+      const py = mix(prev.y, c.y, E.outQuint(k));
+      cxp = px; cyp = py;
+    }
+  }
+  cur.style.opacity = curOn ? 1 : 0;
+  cur.style.left = cxp + 'px';
+  cur.style.top = cyp + 'px';
+  // 点击环
+  let ringOn = 0;
+  for (const c of CUR) {
+    const d = t - c.t;
+    if (d >= 0.55 && d <= 1.05) ringOn = Math.max(ringOn, 1 - (d - 0.55) / 0.5);
+  }
+  ring.style.opacity = ringOn;
+  ring.style.left = cxp + 'px';
+  ring.style.top = cyp + 'px';
+  ring.style.transform = `translate(-50%,-50%) scale(${mix(0.6,1.6,1-ringOn)})`;
+
+  // --- 淡入淡出 ---
+  const fade = document.getElementById('fade');
+  fade.style.opacity = seg(t, T_OUT, DUR, E.inOut) * 0.96;
+};
+
+/* ---------- boot ---------- */
+window.__ready = false;
+(async () => {
+  // 等字体
+  try { await document.fonts.ready; } catch {}
+  // 预热渲染
+  window.__seek(0); window.__seek(1); window.__seek(10);
+  window.__ready = true;
+})();
+</script>
+</body>
+</html>

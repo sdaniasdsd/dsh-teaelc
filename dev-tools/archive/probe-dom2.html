@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>DONE</title></head><body><pre id="out">import ok
+running=true time=0
+elements=0
+after 1.5s: t=0.01240999999999958 res V=-0.3031178891350006 I=-0.03031178891350006
+export: &lt;cir f="1" ts="0.000005" ic="10.20027730826997" cb="50" pb="43" vr="5" mts="5e-11"&gt;|  &lt;r x="176 80 384 80" f="0" r="10"/&gt;|  &lt;s x="384 80 448 80" f="0" p="1"/&gt;|  &lt;w x="176 80 176 352" f="0"/&gt;|  &lt;c x="384 352 176 352" f="0" c="0.000015" iv="-10" sr="0" vd="8.813582473881533"/&gt;|  &lt;l x="384 80 384 352" f="0" l="1" ic="0" i="-0.03031178891350004"/&gt;|  &lt;v x="448 352 448 80" f="0" wf="0" maxv="5"/&gt;|  &lt;r x="384 352 448 352" f="0" r="100"/&gt;|  &lt;o en="4" sp="64" f="x3" p="0"&gt;|    &lt;p v="0" sc="20"/&gt;|    &lt;p v="3" sc="0.05"/&gt;|  &lt;/o&gt;|  &lt;o en="3" sp="64" f="x3" p="1"&gt;|    &lt;p v="0" sc="20"/&gt;|    &lt;p v="3" sc="0.05"/&gt;|  &lt;/o&gt;|  &lt;o en="0" sp="64" f="x3" p="2"&gt;|    &lt;p v="0" sc="0.625"/&gt;|    &lt;p v="3" sc="0.05"/&gt;|  &lt;/o&gt;|  &lt;adj e="3" ei="0" en="Capacitance (F)" mn="0.000001" mx="0.000101" st="Capacitance"/&gt;|  &lt;adj e="4" ei="0" en="Inductance (H)" mn="0.01" mx="1.01" st="Inductance"/&gt;|  &lt;adj e="0" ei="0" en="Resistance (ohms)" mn="1" mx="101" st="Resistance"/&gt;|  &lt;h t="1" i1="4" i2="3"/&gt;|&lt;/cir&gt;|
+DONE</pre>
+<script>
+const out = document.getElementById('out');
+const L = [];
+function log(s){ L.push(s); }
+const NET = '$ 1 5.0E-6 10 50 5.0\n' +
+ 'v 256 176 256 304 0 1 35.0 5.0 0.0\n' +
+ 'r 352 176 352 304 0 100.0\n' +
+ 'w 256 304 256 336 1\n' +
+ 'g 256 336 256 352 0\n' +
+ 'w 352 304 352 336 1\n' +
+ 'g 352 336 352 352 0\n' +
+ 'w 304 176 352 176 0\n' +
+ 'w 256 176 304 176 0\n';
+const f = document.createElement('iframe');
+f.src = './circuitjs.html?lang=en';
+f.style.cssText='position:absolute;left:0;top:0;width:1000px;height:700px;border:0';
+document.body.appendChild(f);
+f.addEventListener('load', () => {
+  const t0 = Date.now();
+  const wait = () => {
+    const w = f.contentWindow;
+    if (!w || !w.CircuitJS1) { if (Date.now()-t0 < 15000) return setTimeout(wait, 200); return log('no api'); }
+    const api = w.CircuitJS1;
+    try {
+      api.importCircuit(NET, true);
+      log('import ok');
+      log('running=' + api.isRunning() + ' time=' + api.getTime());
+      const els = api.getElements();
+      log('elements=' + els.length);
+      els.forEach((el,i)=>{
+        let info=''; try{ info = JSON.stringify(el.getInfo()); }catch(e){ info='ERR '+e.message; }
+        let v='n/a', c='n/a';
+        try{ v = el.getVoltageDiff(); }catch(e){}
+        try{ c = el.getCurrent(); }catch(e){}
+        log(' #'+i+' '+el.getType()+' posts='+el.getPostCount()+' V='+(typeof v==='number'?v.toExponential(3):v)+' I='+(typeof c==='number'?c.toExponential(3):c)+' info='+info);
+      });
+      setTimeout(()=>{
+        const els2 = api.getElements();
+        const r = els2.find(e=>e.getType()==='ResistorElm');
+        log('after 1.5s: t='+api.getTime()+' res V='+r.getVoltageDiff()+' I='+r.getCurrent());
+        log('export: '+String(api.exportCircuit()).replace(/\n/g,'|'));
+        log('DONE'); out.textContent = L.join('\n'); document.title='DONE';
+      }, 1500);
+    } catch(e){ log('err '+e.message); out.textContent=L.join('\n'); }
+  };
+  wait();
+});
+</script><iframe src="./circuitjs.html?lang=en" style="position: absolute; left: 0px; top: 0px; width: 1000px; height: 700px; border: 0px;"></iframe>
+</body></html>

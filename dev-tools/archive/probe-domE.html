@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>DONE</title></head><body><pre id="out">res span=none
+after span click n=7 (n0=7)
+after canvas click n=7
+export=&lt;cir f="1" ts="0.000005" ic="10.20027730826997" cb="50" pb="43" vr="5" mts="5e-11"&gt; |   &lt;r x="176 80 384 80" f="0" r="10"/&gt; |   &lt;s x="384 80 448 80" f="0" p="1"/&gt; |   &lt;w x="176 80 176 352" f="0"/&gt;</pre>
+<script>
+const out=document.getElementById('out'), L=[], log=s=>L.push(s);
+const f=document.createElement('iframe'); f.src='./circuitjs.html?lang=zh';
+f.style='position:absolute;left:-4000px;top:0;width:1200px;height:800px;border:0'; document.body.appendChild(f);
+f.addEventListener('load',()=>{ setTimeout(()=>{
+  const d=f.contentDocument, w=f.contentWindow;
+  const span=[...d.querySelectorAll('.palette-container span[title]')].find(x=>x.title.startsWith('Add Resistor'));
+  log('res span='+(span?span.title:'none'));
+  const n0=w.CircuitJS1.getElements().length;
+  if(span){ span.dispatchEvent(new MouseEvent('mousedown',{bubbles:true,clientX:200,clientY:200})); span.dispatchEvent(new MouseEvent('mouseup',{bubbles:true,clientX:200,clientY:200})); span.dispatchEvent(new MouseEvent('click',{bubbles:true,clientX:200,clientY:200})); }
+  setTimeout(()=>{
+    log('after span click n='+w.CircuitJS1.getElements().length+' (n0='+n0+')');
+    // try canvas clicks at grid
+    const cvs=[...d.querySelectorAll('canvas')].sort((a,b)=>b.width-a.width)[0];
+    const rect=cvs.getBoundingClientRect();
+    const fire=(t,cx,cy)=>cvs.dispatchEvent(new MouseEvent(t,{bubbles:true,clientX:rect.left+cx,clientY:rect.top+cy,button:0}));
+    fire('mousedown',300,250); fire('mouseup',300,250);
+    setTimeout(()=>{
+      log('after canvas click n='+w.CircuitJS1.getElements().length);
+      log('export='+w.CircuitJS1.exportCircuit().split('\n').slice(0,4).join(' | '));
+      out.textContent=L.join('\n'); document.title='DONE';
+    },600);
+  }, 600);
+}, 6000); });
+</script><iframe src="./circuitjs.html?lang=zh" style="position: absolute; left: -4000px; top: 0px; width: 1200px; height: 800px; border: 0px;"></iframe>
+</body></html>

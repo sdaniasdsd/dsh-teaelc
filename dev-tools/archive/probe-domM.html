@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>DONE</title></head><body><pre id="out">newblank=ok
+after clear n=0
+ammeter found=✓ Add Ammeter
+after ammeter drag: n=1 AmmeterElm
+ammeter info=["Ammeter","I = 0 A"]</pre>
+<script>
+const out=document.getElementById('out'), L=[], log=s=>L.push(s);
+const f=document.createElement('iframe'); f.src='./circuitjs.html?lang=zh';
+f.style='position:absolute;left:-4000px;top:0;width:1200px;height:800px;border:0'; document.body.appendChild(f);
+f.addEventListener('load',()=>{ setTimeout(()=>{
+  const d=f.contentDocument, w=f.contentWindow, api=w.CircuitJS1;
+  const cvs=[...d.querySelectorAll('canvas')].sort((a,b)=>b.width-a.width)[0];
+  const rect=cvs.getBoundingClientRect();
+  const M=(t,cx,cy)=>cvs.dispatchEvent(new MouseEvent(t,{bubbles:true,clientX:rect.left+cx,clientY:rect.top+cy,button:0}));
+  const dragTo=(x,y,x2,y2)=>{ M('mousedown',x,y); M('mousemove',(x+x2)/2,(y+y2)/2); M('mousemove',x2,y2); M('mouseup',x2,y2); };
+  // clear circuit via menu 文件 > New Blank Circuit
+  const fileIt=[...d.querySelectorAll('.gwt-MenuItem')].find(x=>x.textContent.trim().startsWith('文件'));
+  fileIt.dispatchEvent(new MouseEvent('click',{bubbles:true}));
+  setTimeout(()=>{
+    const nbc=[...d.querySelectorAll('.menuItem')].find(x=>x.textContent.trim().includes('New Blank Circuit'));
+    log('newblank='+(nbc?'ok':'missing'));
+    if(nbc) nbc.dispatchEvent(new MouseEvent('click',{bubbles:true}));
+    setTimeout(()=>{
+      log('after clear n='+api.getElements().length);
+      const drawIt=[...d.querySelectorAll('.gwt-MenuItem')].find(x=>x.textContent.trim().startsWith('绘制'));
+      drawIt.dispatchEvent(new MouseEvent('click',{bubbles:true}));
+      setTimeout(()=>{
+        const grp=[...d.querySelectorAll('.menuItem')].find(x=>x.textContent.trim().startsWith('✓输出与标注'));
+        if(grp){ grp.dispatchEvent(new MouseEvent('mouseover',{bubbles:true})); }
+        setTimeout(()=>{
+          const am=[...d.querySelectorAll('.menuItem')].find(x=>x.textContent.trim()==='✓ Add Ammeter'||x.textContent.trim().endsWith('Add Ammeter'));
+          log('ammeter found='+(am?am.textContent.trim():'none'));
+          if(am) am.dispatchEvent(new MouseEvent('click',{bubbles:true}));
+          setTimeout(()=>{
+            dragTo(200,200,260,200);
+            setTimeout(()=>{ log('after ammeter drag: n='+api.getElements().length+' '+api.getElements().map(e=>e.getType()).join(','));
+              log('ammeter info='+JSON.stringify((api.getElements()[0]||{}).getInfo ? api.getElements()[0].getInfo() : 'none'));
+              out.textContent=L.join('\n'); document.title='DONE'; }, 700);
+          }, 300);
+        }, 400);
+      }, 400);
+    }, 500);
+  }, 400);
+}, 7000); });
+</script><iframe src="./circuitjs.html?lang=zh" style="position: absolute; left: -4000px; top: 0px; width: 1200px; height: 800px; border: 0px;"></iframe>
+</body></html>

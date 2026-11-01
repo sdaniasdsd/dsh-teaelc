@@ -1,0 +1,196 @@
+ (mod 
+ average
+ bad connection
+ bad connections
+: Drag And Drop To Create
+(A-Cmd-drag)
+(A-M-drag)
+(A-S-drag)
+(Alt-drag)
+(space or Shift-drag)
+/div
+# of Divisions
+Active Building Blocks
+Active Components
+Add 
+Add to Existing Scope
+Adjust timestep for best audio quality and performance?
+Adjust timestep to allow for higher frequencies?
+Analog and Hybrid Chips
+Apply
+Are you sure you want to delete 
+Are you sure?  There are unsaved changes.
+Audio data is not ready yet.  Increase simulation speed to make data ready sooner.
+Auto
+battery
+buffer
+Can't delete subcircuits in use in the current circuit: 
+Can't edit this model.
+Can't have two input/output nodes connected!
+Can't load circuit!
+Can't set language
+Cancel
+Cannot load: That file is too large!
+capacitor
+Circuit: 
+Circuits
+Clear
+Cmd-
+coil I
+coil Vd
+Command Palette
+Convert Wires to Routed Wires
+Copy
+Copy to Clipboard
+Counter
+Create New Advanced Model
+Create New Model
+Create New Simple Model
+Create short URL
+Ctrl-
+Current Circuit:
+Current Speed
+Cut
+darlington pair
+default
+delay = 
+Delete
+Dense (Crout's LU)
+Device has no external inputs/outputs!
+Digital Chips
+diode
+Download last played audio
+Drag
+Drag All
+Drag Column
+Drag Mouse
+Drag Post
+Drag Row
+Drag Selected
+Drag the pins to the desired position
+Draw
+Duplicate
+Duty cycle 
+Edge
+Edit
+Edit Model
+Edit Pin Layout
+Edit Shortcuts
+Edit Subcircuit Pin Layout
+Edit...
+Editing disabled.  Re-enable from the Options menu.
+Editing: 
+export
+Export as Text
+Export as URL
+Export Image
+ext. voltage
+f.3db = 
+fc = 
+File
+File name:
+Height
+Import from Dropbox
+Import From Dropbox Link
+Import from Text
+inductor
+Inputs and Sources
+JFET Type
+Labeled Node
+LED
+Level
+Light Brightness
+Load Subcircuits Only
+Loaded subcircuits: 
+Logic Gates, Input and Output
+Max Scale
+Max Value
+melted
+Mirror X
+Mirror Y
+missing: 
+Mode: 
+Model Name
+Model not found: 
+MOSFET Type
+Must restart to set language.  Restart now?
+N-Channel
+N-Channel JFET
+No file
+No subcircuits found in file
+Noise
+None
+off
+OK
+on
+Open Dropbox Chooser
+Options
+Other Options...
+out
+Outputs and Labels
+P-Channel
+P-Channel JFET
+Parse error in expression
+Passive Components
+Paste the text file for your circuit here...
+Phase angle: 
+Play Audio
+Please enter a model name.
+Please select one or more subcircuits.
+Position
+Power Brightness
+Press and hold mouse to create circuit element
+Re-Import
+Recent
+relay
+res.f = 
+Reset
+Reset Colors to Default
+Reset Position
+resistor
+Rotate CCW
+Rotate CW
+RPM
+Save Across Sessions
+Save as Default
+Save as Image
+Scale
+Scope
+Scope Properties
+Scope:
+Scopes
+Select/Drag Sel
+Shortcuts...
+Show Label
+Simulation Speed
+Sliders...
+Sparse (CSC LU)
+speed
+Start/Stop Simulation
+subcircuit
+Subcircuit Manager
+Subcircuits
+Swap Terminals
+Text file for this circuit is...
+This Circuit
+This model cannot be modified.  Change the model name to allow customization.
+This Session
+time step = 
+To open a file in your dropbox account using the chooser click below.
+To open a shared Dropbox file from a Dropbox link paste the link below...
+Toggle Dev Tools
+Tools
+Trail Persistence (time steps)
+transistor
+Transistor Type
+Transparent Background
+trigger
+Type a command...
+Undocked Scope
+URL for this circuit is...
+View Components
+View in New Scope
+View in New Undocked Scope
+Viewing: 
+Warning: this URL is longer than 2000 characters and may not work in some browsers.
+Width

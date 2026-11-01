@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>DONE</title></head><body>
+<iframe id="shell" src="/dsh-circuit/" style="width:1400px;height:900px;border:0"></iframe>
+<pre id="out">blank n=0
+types=DCVoltageElm,ResistorElm,GroundElm,AmmeterElm,ProbeElm
+panel rows=5
+chips=电阻 电压× | 电阻 电流×
+scopeMeta=最近读数：0.0 nV / 0.0 nV
+scope painted pixels=1225/13880</pre>
+<script>
+const out=document.getElementById('out'), L=[], log=s=>L.push(s);
+const shell=document.getElementById('shell');
+shell.addEventListener('load',()=>{
+  setTimeout(()=>{
+    const p=shell.contentDocument;
+    const sim=p.getElementById('simframe');
+    const sd=sim.contentDocument;
+    const api=sim.contentWindow.CircuitJS1;
+    const toast=()=>p.querySelector('.dc-toast')?p.querySelector('.dc-toast').textContent:'-';
+    async function place(name,x,y){
+      const btn=[...p.querySelectorAll('.dc-part-btn')].find(b=>b.textContent.includes(name));
+      if(!btn){ log(name+': missing'); return; }
+      btn.click(); await new Promise(r=>setTimeout(r,250));
+      const t=toast(); if(t.includes('没有找到')) log(name+': FAIL toast='+t);
+      const cv=[...sd.querySelectorAll('canvas')].sort((a,b)=>b.width-a.width)[0];
+      const rect=cv.getBoundingClientRect();
+      const M=(ty,cx,cy)=>cv.dispatchEvent(new MouseEvent(ty,{bubbles:true,clientX:rect.left+cx,clientY:rect.top+cy,button:0}));
+      M('mousedown',x,y); M('mousemove',x+60,y); M('mouseup',x+60,y);
+      await new Promise(r=>setTimeout(r,600));
+    }
+    (async()=>{
+      // blank circuit first
+      await new Promise(r=>setTimeout(r,300));
+      const blank=[...sd.querySelectorAll('.gwt-MenuItem')].find(x=>x.textContent.trim().startsWith('文件')||x.textContent.trim().startsWith('File'));
+      blank.dispatchEvent(new MouseEvent('click',{bubbles:true}));
+      await new Promise(r=>setTimeout(r,200));
+      const nbc=[...sd.querySelectorAll('.menuItem')].find(x=>x.textContent.trim().includes('New Blank'));
+      if(nbc) nbc.dispatchEvent(new MouseEvent('click',{bubbles:true}));
+      await new Promise(r=>setTimeout(r,300));
+      log('blank n='+api.getElements().length);
+      await place('直流电源', 200, 200);
+      await place('电阻', 200, 320);
+      await place('接地', 200, 400);
+      await place('电流表', 320, 260);
+      await place('电压表', 200, 150);
+      log('types='+api.getElements().map(e=>e.getType()).join(','));
+      const rows=[...p.querySelectorAll('table.dc-table tbody tr')];
+      log('panel rows='+rows.length);
+      // add both channels on the resistor
+      const rrow=rows.find(r=>r.textContent.includes('电阻'));
+      if(rrow){ const vb=[...rrow.querySelectorAll('.dc-add-ch')].find(b=>b.textContent.includes('电压')); vb.click(); }
+      await new Promise(r=>setTimeout(r,300));
+      const rrow2=[...p.querySelectorAll('table.dc-table tbody tr')].find(r=>r.textContent.includes('电阻'));
+      if(rrow2){ const ib=[...rrow2.querySelectorAll('.dc-add-ch')].find(b=>b.textContent.includes('电流')); ib.click(); }
+      await new Promise(r=>setTimeout(r,2500));
+      log('chips='+[...p.querySelectorAll('.dc-chip')].map(c=>c.textContent.trim()).join(' | '));
+      log('scopeMeta='+(p.querySelector('.dc-scope-meta')?p.querySelector('.dc-scope-meta').textContent:'-'));
+      const canv=p.querySelector('canvas.dc-scope');
+      // check non-empty drawing
+      const cctx=canv.getContext('2d'); const img=cctx.getImageData(0,0,canv.width,Math.min(40,canv.height)).data;
+      let nonBg=0; for(let i=0;i<img.length;i+=4){ if(img[i]>30||img[i+1]>30||img[i+2]>40) nonBg++; }
+      log('scope painted pixels='+nonBg+'/'+(img.length/4));
+      out.textContent=L.join('\n'); document.title='DONE';
+    })();
+  }, 10000);
+});
+</script>
+</body></html>

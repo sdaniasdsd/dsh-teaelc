@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>DONE</title></head><body><pre id="out">palettes=7
+ [0] children=2 html=&lt;span title="Add Capacitor" style="color: rgb(51, 51, 51); cursor: pointer; touch-action: none;"&gt;&lt;svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"&gt;&lt;g transform="scale(1.6666666666666667)"&gt;&lt;defs&gt;&lt;/defs&gt;&lt;g tra
+ [1] children=2 html=&lt;span title="Add Voltage Source (2-terminal)" style="color: rgb(51, 51, 51); cursor: pointer; touch-action: none;"&gt;&lt;svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"&gt;&lt;g transform="scale(1.6666666666666667)"&gt;&lt;
+ [2] children=4 html=&lt;span title="Add Switch" style="color: rgb(51, 51, 51); cursor: pointer; touch-action: none;"&gt;&lt;svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"&gt;&lt;g transform="scale(1.6666666666666667)"&gt;&lt;defs&gt;&lt;/defs&gt;&lt;g transf
+ [3] children=2 html=&lt;span title="Add Op Amp (ideal, - on top)" style="color: rgb(51, 51, 51); cursor: pointer; touch-action: none;"&gt;&lt;svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"&gt;&lt;g transform="scale(1.6666666666666667)"&gt;&lt;g t
+ [4] children=2 html=&lt;span title="Add Transistor (bipolar, NPN)" style="color: rgb(51, 51, 51); cursor: pointer; touch-action: none;"&gt;&lt;svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"&gt;&lt;g transform="scale(1.6666666666666667)"&gt;&lt;de
+ [5] children=2 html=&lt;span title="Add MOSFET (N-Channel)" style="color: rgb(51, 51, 51); cursor: pointer; touch-action: none;"&gt;&lt;svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"&gt;&lt;g transform="scale(1.6666666666666667)"&gt;&lt;defs&gt;&lt;/de
+ [6] children=6 html=&lt;span title="Add AND Gate" style="color: rgb(51, 51, 51); cursor: pointer; touch-action: none;"&gt;&lt;svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"&gt;&lt;g transform="scale(1.6666666666666667)"&gt;&lt;g transform="transl
+icon nodes=46
+  [0] I.cirjsicon-doc-new title= html=&lt;i class="cirjsicon-doc-new"&gt;&lt;/i&gt;
+  [1] I.cirjsicon-folder title= html=&lt;i class="cirjsicon-folder"&gt;&lt;/i&gt;
+  [2] I.cirjsicon-doc-text title= html=&lt;i class="cirjsicon-doc-text"&gt;&lt;/i&gt;
+  [3] I.cirjsicon-dropbox title= html=&lt;i class="cirjsicon-dropbox"&gt;&lt;/i&gt;
+  [4] I.cirjsicon-floppy title= html=&lt;i class="cirjsicon-floppy"&gt;&lt;/i&gt;
+  [5] I.cirjsicon-export title= html=&lt;i class="cirjsicon-export"&gt;&lt;/i&gt;
+  [6] I.cirjsicon-export title= html=&lt;i class="cirjsicon-export"&gt;&lt;/i&gt;
+  [7] I.cirjsicon-image title= html=&lt;i class="cirjsicon-image"&gt;&lt;/i&gt;
+  [8] I.cirjsicon-image title= html=&lt;i class="cirjsicon-image"&gt;&lt;/i&gt;
+  [9] I.cirjsicon-image title= html=&lt;i class="cirjsicon-image"&gt;&lt;/i&gt;
+  [10] I.cirjsicon-microchip title= html=&lt;i class="cirjsicon-microchip"&gt;&lt;/i&gt;
+  [11] I.cirjsicon-magic title= html=&lt;i class="cirjsicon-magic"&gt;&lt;/i&gt;</pre>
+<script>
+const out=document.getElementById('out'), L=[], log=s=>L.push(s);
+const f=document.createElement('iframe'); f.src='./circuitjs.html?lang=zh';
+f.style='position:absolute;left:-4000px;top:0;width:1200px;height:800px;border:0'; document.body.appendChild(f);
+f.addEventListener('load',()=>{ setTimeout(()=>{
+  const d=f.contentDocument;
+  const pals=[...d.querySelectorAll('.palette-container')];
+  log('palettes='+pals.length);
+  pals.forEach((p,i)=>{ log(' ['+i+'] children='+p.children.length+' html='+p.innerHTML.slice(0,220).replace(/\s+/g,' ')); });
+  const all=[...d.querySelectorAll('[class*="cirjsicon"]')];
+  log('icon nodes='+all.length);
+  all.slice(0,12).forEach((n,i)=>log('  ['+i+'] '+n.tagName+'.'+n.className+' title='+(n.title||'')+' html='+n.outerHTML.slice(0,90).replace(/\s+/g,' ')));
+  out.textContent=L.join('\n'); document.title='DONE';
+}, 6000); });
+</script><iframe src="./circuitjs.html?lang=zh" style="position: absolute; left: -4000px; top: 0px; width: 1200px; height: 800px; border: 0px;"></iframe>
+</body></html>

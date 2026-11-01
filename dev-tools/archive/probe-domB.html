@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>DONE</title></head><body><pre id="out">Ammeter -&gt; n=7 types=ResistorElm,SwitchElm,WireElm,CapacitorElm,InductorElm,VoltageElm,ResistorElm info=["resistor","I = 47.249 mA","Vd = 472.494 mV","R = 10 Ω","P = 22.325 mW"]
+Voltmeter(Probe) -&gt; n=1 types=OutputElm info=["output","V = 0 V"]
+LabeledNode -&gt; n=1 types=LogicInputElm info=["logic input","1 (2.5 V)","I = 0 A"]
+LogicOutput (211) -&gt; n=1 types=AudioOutputElm info=["audio output","V = 0 V","start = 0 s","dur = 3.125 ms","samples = 25/8000"]
+LED 185 -&gt; n=1 types=DeMultiplexerElm info=["Demultiplexer","Q0 = 0 V; Q1 = 0 V","Q2 = 0 V; Q3 = 0 V","S0 = 0 V; S1 = 0 V","Q = 0 V"]
+Lamp 181 -&gt; n=0 types=- info=
+Text 405 -&gt; n=1 types=LEDArrayElm info=["LED array"]
+Scope 403 -&gt; n=0 types=- info=
+SPST s -&gt; n=1 types=SwitchElm info=["switch (SPST)","open","Vd = 0 V"]
+PushSwitch 159 -&gt; n=1 types=AnalogSwitchElm info=["analog switch","open","Vd = 0 V","I = 0 A","Vc = 0 V"]
+Pot 174 -&gt; n=1 types=PotElm info=["potentiometer","Vd = 0 V","R1 = 1 kΩ","R2 = -999.004 Ω","I1 = 0 A","I2 = 0 A"]
+AC v2 -&gt; n=1 types=TransLineElm info=["transmission line","60 Ω","length = 194.863 Mm","delay = 1 s"]
+Battery b -&gt; n=1 types=BoxElm info=[]
+Current src i -&gt; n=1 types=CurrentElm info=["current source","I = 0 A","Vd = 0 V","P = 0 W"]
+ACCur 172 -&gt; n=0 types=- info=</pre>
+<script>
+const out=document.getElementById('out'), L=[], log=s=>L.push(s);
+const f=document.createElement('iframe'); f.src='./circuitjs.html?lang=en';
+f.style='position:absolute;left:-3000px;top:0;width:900px;height:700px;border:0'; document.body.appendChild(f);
+f.addEventListener('load',()=>{ const t0=Date.now();
+ const wait=()=>{ const w=f.contentWindow; if(!w||!w.CircuitJS1){ if(Date.now()-t0<12000) return setTimeout(wait,200); log('no api'); return done(); }
+  const api=w.CircuitJS1;
+  const D = {
+   'Ammeter':'a 100 100 200 100 0 0 0 0 0 0',
+   'Voltmeter(Probe)':'O 100 100 160 100 0',
+   'LabeledNode':'L 100 100 40 100 1 1 false 5.0 0.0',
+   'LogicOutput (211)':'211 100 100 160 100 0 1 8000 1',
+   'LED 185':'185 100 100 200 100 0 2',
+   'Lamp 181':'181 100 100 200 100 0 1 false',
+   'Text 405':'405 100 100 160 100 0 8 8',
+   'Scope 403':'403 100 100 300 300 0',
+   'SPST s':'s 100 100 200 100 0 1 false',
+   'PushSwitch 159':'159 100 100 200 100 0 0',
+   'Pot 174':'174 100 100 200 100 0 1 1000 0.5',
+   'AC v2':'171 100 100 200 100 0 1 60 5 0 0 0.5',
+   'Battery b':'b 100 100 200 100 0 0',
+   'Current src i':'i 100 100 200 100 0 5.0',
+   'ACCur 172':'172 100 100 200 100 0 1 60 5 0 0 0.5'
+  };
+  let keys=Object.keys(D), i=0;
+  const next=()=>{
+    if(i>=keys.length) return done();
+    const k=keys[i++];
+    const net='$ 1 5.0E-6 10 50 5.0 50\n'+D[k]+'\n';
+    try{ api.importCircuit(net,false); }catch(e){ log(k+' import err '+e.message); return next(); }
+    setTimeout(()=>{
+      try{ const els=api.getElements(); log(k+' -> n='+els.length+' types='+(els.map(e=>e.getType()).join(',')||'-')+' info='+(els[0]?JSON.stringify(els[0].getInfo()).slice(0,100):'')); }
+      catch(e){ log(k+' err '+e.message); }
+      next();
+    }, 400);
+  };
+  next();
+ };
+ wait(); });
+function done(){ out.textContent=L.join('\n'); document.title='DONE'; }
+</script><iframe src="./circuitjs.html?lang=en" style="position: absolute; left: -3000px; top: 0px; width: 900px; height: 700px; border: 0px;"></iframe>
+</body></html>

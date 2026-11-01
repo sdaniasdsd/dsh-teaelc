@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>DONE</title></head><body>
+<iframe id="shell" src="/dsh-circuit/" style="width:1400px;height:900px;border:0"></iframe>
+<pre id="out">types=VoltageElm,ResistorElm,ResistorElm,GroundElm,WireElm
+challenge=found
+check results:
+  ✓找到 2 个电阻
+  ✓两个电阻分压基本相等
+ok=2 bad=0</pre>
+<script>
+const out=document.getElementById('out'), L=[], log=s=>L.push(s);
+const shell=document.getElementById('shell');
+shell.addEventListener('load',()=>{
+  setTimeout(()=>{
+    const p=shell.contentDocument, sim=p.getElementById('simframe'), sd=sim.contentDocument;
+    const api=sim.contentWindow.CircuitJS1;
+    const cv=[...sd.querySelectorAll('canvas')].sort((a,b)=>b.width-a.width)[0];
+    const rect=cv.getBoundingClientRect();
+    const M=(t,cx,cy)=>cv.dispatchEvent(new MouseEvent(t,{bubbles:true,clientX:rect.left+cx,clientY:rect.top+cy,button:0}));
+    const drag=(x,y,x2,y2)=>{ M('mousedown',x,y); M('mousemove',(x+x2)/2,(y+y2)/2); M('mousemove',x2,y2); M('mouseup',x2,y2); };
+    async function place(name,x,y,x2,y2){
+      const btn=[...p.querySelectorAll('.dc-part-btn')].find(b=>b.textContent.includes(name));
+      btn.click(); await new Promise(r=>setTimeout(r,200));
+      drag(x,y,x2,y2); await new Promise(r=>setTimeout(r,500));
+    }
+    // build proper circuit via importCircuit for reliability
+    const NET='$ 1 5.0E-6 10 50 5.0 50\n'+'v 200 150 200 350 0 0 40.0 10.0 0.0 0.0 0.5\n'+'r 200 150 400 150 0 100.0\n'+'r 400 150 400 350 0 100.0\n'+'g 200 350 200 380 0\n'+'w 200 350 400 350 0\n';
+    api.importCircuit(NET,false);
+    setTimeout(()=>{
+      log('types='+api.getElements().map(e=>e.getType()).join(','));
+      // activate series challenge
+      const chal=[...p.querySelectorAll('.dc-chal')].find(c=>c.textContent.includes('串联分压'));
+      log('challenge='+(chal?'found':'none'));
+      chal.click();
+      setTimeout(()=>{
+        const check=[...p.querySelectorAll('.dc-btn')].find(b=>b.textContent.includes('检查'));
+        if(check) check.click();
+        setTimeout(()=>{
+          log('check results:');
+          [...p.querySelectorAll('.dc-check-row')].forEach(r=>log('  '+r.textContent.trim()));
+          const okAll=[...p.querySelectorAll('.dc-check-icon.ok')].length;
+          const badAll=[...p.querySelectorAll('.dc-check-icon.bad')].length;
+          log('ok='+okAll+' bad='+badAll);
+          out.textContent=L.join('\n'); document.title='DONE';
+        }, 800);
+      }, 400);
+    }, 900);
+  }, 10000);
+});
+</script>
+</body></html>

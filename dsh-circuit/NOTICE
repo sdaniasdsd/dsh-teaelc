@@ -1,0 +1,44 @@
+# NOTICE — 上游与再发布说明
+
+## 本插件
+
+dsh-circuit 是一个 DeepSeek Harness 插件，面向初中/高中物理教学，提供：
+
+- 元件拖放摆放（走 CircuitJS1 官方 Draw 菜单交互路径）
+- 逐个元件的电压 / 电流实时读数
+- 多通道波形记录（按仿真时间采样）
+- 基于真实读数的挑战任务与自动校验
+
+## 上游
+
+`assets/app/` 目录下的仿真内核来自：
+
+- **CircuitJS1** — <https://github.com/sharpie7/circuitjs1>
+- 原作者：Paul Falstad（原 Java Applet 版）、Iain Sharp（GWT 浏览器移植）
+- 许可证：**GNU General Public License v2.0（GPL-2.0）**
+  - 原文：<https://www.gnu.org/licenses/old-licenses/gpl-2.0.html>
+  - 随上游仓库分发：`COPYING.txt`
+- 具体文件：
+  - `assets/app/circuitjs.js` — 上游官方发布构建产物（GWT 打包的 Web 应用，未修改）
+  - `assets/app/circuitjs.css` — 与之配套的样式（未修改）
+  - `assets/app/circuitjs.html` — 精简的挂载页（只保留 `<script type="module" src>`，属于上游仓库 README 中描述的部署方式）
+  - `assets/app/circuits/` — 上游示例电路（`src/com/lushprojects/circuitjs1/public/circuits`）
+  - `assets/app/setuplist.txt` — 上游示例索引
+  - `assets/app/locale/locale_da.txt` … `locale_ru.txt` — 上游语言包（未修改）
+  - `assets/app/locale/locale_zh.txt` — **本插件新增**的简体中文语言包（见 `docs/locale-zh-notes.md`）
+- 字体：`war/font/`（Font Awesome / Fontelico 子集），按其 `font/LICENSE.txt` 授权；本插件未分发该字体目录（内核打包时已内联所需图标）。
+
+## 本插件的许可
+
+由于插件内含并以 GPL-2.0 作品（CircuitJS1）为核心，**dsh-circuit 整体按 GPL-2.0 再发布**：
+`lib/index.js`、`assets/app/panel.js`、`assets/app/panel.css`、`assets/app/sim.html` 与本 NOTICE、
+本仓库 `README.md` 均受 GPL-2.0 约束。完整许可文本见上游 `COPYING.txt`（随 `assets/app/` 分发一份）。
+
+分发本插件或其衍生作品时，需同时提供完整对应源码（即本仓库内容），并保留上述署名与许可声明。
+
+## 未做的事（避免夸大）
+
+- 本插件没有重新实现电路求解器，也没有修改 GWT 内核；`getElements()` 等读数全部由上游提供。
+- 未对上游界面做"全量汉化"：中文语言包只覆盖上游 locale 机制里可替换的键（196 条），
+  菜单条目名（`Add Resistor` 等）仍为英文，已在上游条目结构中固化。
+- 未提供自动化测试覆盖上游仿真精度；面板侧的校验基于上游给出的读数做规则判断。

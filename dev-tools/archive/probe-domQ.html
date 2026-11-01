@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>DONE</title></head><body>
+<iframe id="shell" src="/dsh-circuit/" style="width:1400px;height:900px;border:0"></iframe>
+<pre id="out">top items=文件&nbsp;New B|编辑&nbsp;UndoC|绘制✓ Add |示波器&nbsp;Stac|选项✓ Show|工具将导线转换为|电路Basics
+placeHint before=先点元件，再在画布上按住拖动即可放置。
+toast=内核菜单里没有找到"电阻"
+placeHint after=先点元件，再在画布上按住拖动即可放置。
+menu items containing Add Resistor=1
+canvas=811x830 rect={"x":0,"y":70,"width":811,"height":830,"top":70,"right":811,"bottom":900,"left":0}</pre>
+<script>
+const out=document.getElementById('out'), L=[], log=s=>L.push(s);
+const shell=document.getElementById('shell');
+shell.addEventListener('load',()=>{
+  setTimeout(()=>{
+    const p=shell.contentDocument, w=shell.contentWindow;
+    const sim=p.getElementById('simframe');
+    const api=sim.contentWindow.CircuitJS1;
+    const sd=sim.contentDocument;
+    log('top items='+[...sd.querySelectorAll('.gwt-MenuItem')].map(x=>x.textContent.trim().slice(0,8)).join('|'));
+    log('placeHint before='+p.querySelector('.dc-place-hint').textContent.trim());
+    const btn=[...p.querySelectorAll('.dc-part-btn')].find(b=>b.textContent.includes('电阻'));
+    btn.click();
+    setTimeout(()=>{
+      log('toast='+(p.querySelector('.dc-toast')?p.querySelector('.dc-toast').textContent:'-'));
+      log('placeHint after='+p.querySelector('.dc-place-hint').textContent.trim());
+      const mi=[...sd.querySelectorAll('.menuItem')].filter(x=>x.textContent.includes('Add Resistor')).length;
+      log('menu items containing Add Resistor='+mi);
+      const cv=[...sd.querySelectorAll('canvas')].sort((a,b)=>b.width-a.width)[0];
+      log('canvas='+cv.width+'x'+cv.height+' rect='+JSON.stringify(cv.getBoundingClientRect()));
+      out.textContent=L.join('\n'); document.title='DONE';
+    }, 300);
+  }, 10000);
+});
+</script>
+</body></html>

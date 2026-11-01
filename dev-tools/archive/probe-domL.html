@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>DONE</title></head><body><pre id="out">ok
+after cap: ResistorElm,SwitchElm,WireElm,CapacitorElm,InductorElm,VoltageElm,ResistorElm,CapacitorElm
+groups=1 label=✓输出与标注►✓ Add
+ammeterItems=2
+final: ResistorElm,SwitchElm,WireElm,CapacitorElm,InductorElm,VoltageElm,ResistorElm,CapacitorElm,CapacitorElm</pre>
+<script>
+const out=document.getElementById('out'), L=[], log=s=>L.push(s);
+const f=document.createElement('iframe'); f.src='./circuitjs.html?lang=zh';
+f.style='position:absolute;left:-4000px;top:0;width:1200px;height:800px;border:0'; document.body.appendChild(f);
+f.addEventListener('load',()=>{ setTimeout(()=>{
+  const d=f.contentDocument, w=f.contentWindow;
+  const cvs=[...d.querySelectorAll('canvas')].sort((a,b)=>b.width-a.width)[0];
+  const rect=cvs.getBoundingClientRect();
+  const M=(t,cx,cy,extra)=>cvs.dispatchEvent(new MouseEvent(t,Object.assign({bubbles:true,clientX:rect.left+cx,clientY:rect.top+cy,button:0,which:1},extra||{})));
+  const drag=(x,y,dx)=>{ M('mousedown',x,y); for(let k=1;k<=6;k++) M('mousemove',x+dx*k/6,y); M('mouseup',x+dx,y); };
+  const api=w.CircuitJS1;
+  const addTop=(title)=>{ const s=[...d.querySelectorAll('.palette-container span[title]')].find(x=>x.title===title); if(!s) return 'no '+title; s.dispatchEvent(new MouseEvent('mousedown',{bubbles:true})); s.dispatchEvent(new MouseEvent('mouseup',{bubbles:true})); return 'ok'; };
+  const t1=addTop('Add Capacitor'); log(t1);
+  setTimeout(()=>{ drag(200,200,80);
+    setTimeout(()=>{
+      log('after cap: '+api.getElements().map(e=>e.getType()).join(','));
+      // Draw menu -> 输出与标注 submenu -> Ammeter
+      const drawIt=[...d.querySelectorAll('.gwt-MenuItem')].find(x=>x.textContent.trim().startsWith('绘制'));
+      drawIt.dispatchEvent(new MouseEvent('click',{bubbles:true}));
+      setTimeout(()=>{
+        const groups=[...d.querySelectorAll('.menuItem')].filter(x=>x.textContent.trim().startsWith('✓输出与标注')||x.textContent.trim().startsWith('✓输出'));
+        log('groups='+groups.length+' label='+(groups[0]?groups[0].textContent.trim().slice(0,12):'-'));
+        if(groups[0]){ groups[0].dispatchEvent(new MouseEvent('mouseover',{bubbles:true})); groups[0].dispatchEvent(new MouseEvent('click',{bubbles:true})); }
+        setTimeout(()=>{
+          const am=[...d.querySelectorAll('.menuItem')].filter(x=>x.textContent.trim().includes('Add Ammeter'));
+          log('ammeterItems='+am.length);
+          if(am[0]) am[0].dispatchEvent(new MouseEvent('click',{bubbles:true}));
+          setTimeout(()=>{ drag(400,300,60);
+            setTimeout(()=>{ log('final: '+api.getElements().map(e=>e.getType()).join(','));
+              out.textContent=L.join('\n'); document.title='DONE'; }, 900);
+          }, 400);
+        }, 400);
+      }, 400);
+    }, 700);
+  }, 400);
+}, 7000); });
+</script><iframe src="./circuitjs.html?lang=zh" style="position: absolute; left: -4000px; top: 0px; width: 1200px; height: 800px; border: 0px;"></iframe>
+</body></html>

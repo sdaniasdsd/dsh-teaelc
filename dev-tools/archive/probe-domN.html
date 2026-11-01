@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>DONE</title></head><body><pre id="out">before: &lt;cir f="1" ts="0.000005" ic="10.20027730826997" cb="50" pb="50" vr="5" mts="5e-11"&gt; ||   &lt;r x="176 176 320 176" f="0" r="100"/&gt; ||   &lt;v x="176 176 176 288" f="0" wf="0" maxv="5"/&gt; ||   &lt;w x="176 288 320 288" f="0"/&gt; ||   &lt;w x="320 176 320 288" f="0"/&gt;
+after click: &lt;cir f="1" ts="0.000005" ic="10.20027730826997" cb="50" pb="50" vr="5" mts="5e-11"&gt; ||   &lt;r x="176 176 320 176" f="0" r="100"/&gt; ||   &lt;v x="176 176 176 288" f="0" wf="0" maxv="5"/&gt; ||   &lt;w x="176 288 320 288" f="0"/&gt; ||   &lt;w x="320 176 320 288" f="0"/&gt;
+sample after 2s: t=0.01673999999999979 res=-0.05</pre>
+<script>
+const out=document.getElementById('out'), L=[], log=s=>L.push(s);
+const NET='$ 1 5.0E-6 10 50 5.0 50\n'+
+ 'r 176 176 320 176 0 100.0\n'+
+ 'v 176 176 176 288 0 0 40.0 5.0 0.0 0.0 0.5\n'+
+ 'w 176 288 320 288 0\n'+
+ 'w 320 176 320 288 0\n'+
+ 'g 320 288 320 304 0\n';
+const f=document.createElement('iframe'); f.src='./circuitjs.html?lang=zh';
+f.style='position:absolute;left:0;top:0;width:1200px;height:800px;border:0'; document.body.appendChild(f);
+f.addEventListener('load',()=>{ const t0=Date.now();
+ const wait=()=>{ const w=f.contentWindow; if(!w||!w.CircuitJS1){ if(Date.now()-t0<12000) return setTimeout(wait,200); return done(); }
+  const api=w.CircuitJS1;
+  try{ api.importCircuit(NET,false); }catch(e){ log('import err '+e.message); return done(); }
+  setTimeout(()=>{
+    const d=f.contentDocument;
+    const cvs=[...d.querySelectorAll('canvas')].sort((a,b)=>b.width-a.width)[0];
+    const rect=cvs.getBoundingClientRect();
+    log('before: '+api.exportCircuit().split('\n').slice(0,5).join(' || '));
+    // click on the resistor (approx center of resistor) to select it
+    const M=(t,cx,cy)=>cvs.dispatchEvent(new MouseEvent(t,{bubbles:true,clientX:rect.left+cx,clientY:rect.top+cy,button:0}));
+    M('mousedown',240,180); M('mouseup',240,180);
+    setTimeout(()=>{
+      log('after click: '+api.exportCircuit().split('\n').slice(0,5).join(' || '));
+      log('sample after 2s: t='+api.getTime()+' res='+api.getElements().find(e=>e.getType()==='ResistorElm').getCurrent());
+      out.textContent=L.join('\n'); document.title='DONE';
+    }, 1200);
+  }, 800);
+ };
+ wait(); });
+function done(){ out.textContent=L.join('\n'); document.title='DONE'; }
+</script><iframe src="./circuitjs.html?lang=zh" style="position: absolute; left: 0px; top: 0px; width: 1200px; height: 800px; border: 0px;"></iframe>
+</body></html>

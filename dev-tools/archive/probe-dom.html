@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>DONE</title></head>
+<body><div id="out">api keys: setSimRunning,getTime,getTimeStep,setTimeStep,getMaxTimeStep,setMaxTimeStep,isRunning,getNodeVoltage,setExtVoltage,getElements,getCircuitAsSVG,exportCircuit,importCircuit
+isRunning: true
+time: 0
+exportCircuit head: &lt;cir f="64" ts="0.000005" ic="1.0312258501325766" cb="50" pb="50" vr="5" mts="5e-11"/&gt;|
+elements: 0
+buttons: gwt-MenuItem|File&nbsp;New Blank Circuit&nbsp;Open Fi ;; gwt-MenuItem|Edit&nbsp;UndoCtrl-Z&nbsp;RedoCtrl-Y&nbsp;Cut ;; gwt-MenuItem|Draw✓ Add Wirew✓ Add Routed Wi ;; gwt-MenuItem|Scopes&nbsp;Stack All&nbsp;Unstack All&nbsp;C ;; gwt-MenuItem|Options✓ Show Current✓ Show Vo ;; gwt-MenuItem|ToolsConvert Wires to Routed W ;; topButton|Reset ;; topButton|RUN&nbsp;/&nbsp;Stop ;; |◀ Back ;; |Save ;; |Save Copy
+body children: SCRIPT. , DIV.palette-container , DIV.palette-container , DIV.palette-container , DIV.palette-container , DIV.palette-container , DIV.palette-container , DIV.palette-container , DIV.layoutPanel , DIV.subcircuitBar</div>
+<script>
+const out = document.getElementById('out');
+const lines = [];
+function log(s){ lines.push(s); }
+const f = document.createElement('iframe');
+f.src = './circuitjs.html?lang=en';
+f.style.cssText='position:absolute;left:-2000px;top:0;width:1200px;height:800px;border:0';
+document.body.appendChild(f);
+f.addEventListener('load', () => {
+  const tries = (n) => {
+    const w = f.contentWindow;
+    if (!w || !w.CircuitJS1) { if (n < 60) return setTimeout(() => tries(n + 1), 200); log('CircuitJS1 missing after wait'); return finish(); }
+    const api = w.CircuitJS1;
+    log('api keys: ' + Object.keys(api).join(','));
+    try { log('isRunning: ' + api.isRunning()); } catch(e){ log('isRunning err ' + e.message); }
+    try { log('time: ' + api.getTime()); } catch(e){ log('time err ' + e.message); }
+    try { log('exportCircuit head: ' + String(api.exportCircuit()).slice(0, 120).replace(/\n/g,'|')); } catch(e){ log('export err ' + e.message); }
+    try {
+      const els = api.getElements();
+      log('elements: ' + els.length);
+      els.slice(0, 14).forEach((el, i) => {
+        let info = '';
+        try { info = JSON.stringify(el.getInfo()).slice(0, 80); } catch(e) { info = 'ERR ' + e.message; }
+        let v = '', c = '';
+        try { v = el.getVoltageDiff(); } catch(e) { v = 'n/a'; }
+        try { c = el.getCurrent(); } catch(e) { c = 'n/a'; }
+        log('  #' + i + ' type=' + el.getType() + ' posts=' + el.getPostCount() + ' V=' + v + ' I=' + c + ' info=' + info);
+      });
+    } catch (e) { log('elements err ' + e.message); }
+    // DOM toolbar survey
+    try {
+      const d = f.contentDocument;
+      const bar = d.querySelector('.mainToolbar') || d.body;
+      const btns = [...d.querySelectorAll('button, [role="button"], .topButton, td')].map(b => (b.className||'') + '|' + (b.textContent||'').trim().slice(0,30));
+      log('buttons: ' + btns.slice(0, 40).join(' ;; '));
+      log('body children: ' + [...d.body.children].map(c => c.tagName + '.' + (c.className||'')).join(' , '));
+    } catch (e) { log('dom err ' + e.message); }
+    finish();
+  };
+  tries(0);
+});
+function finish(){ out.textContent = lines.join('\n'); document.title = 'DONE'; }
+</script><iframe src="./circuitjs.html?lang=en" style="position: absolute; left: -2000px; top: 0px; width: 1200px; height: 800px; border: 0px;"></iframe>
+
+</body></html>

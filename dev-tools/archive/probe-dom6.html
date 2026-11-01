@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>DONE</title></head><body><pre id="out">import ok
+n=7
+#0 ResistorElm posts=2 V=0.16770362172898068 I=0.016770362172898068 ["resistor","I = 16.77 mA","Vd = 167.704 mV","R = 10 Ω","P = 2.812 mW"]
+#1 SwitchElm posts=2 V=-16.19620424202099 I=0 ["switch (SPST)","open","Vd = 16.196 V"]
+#2 WireElm posts=2 V=-11.02850062029201 I=-0.016770362172898068 ["wire","I = 16.77 mA","V = -11.029 V"]
+#3 CapacitorElm posts=2 V=11.028500620291789 I=0.01677036217290606 ["capacitor","I = 16.77 mA","Vd = 11.029 V","C = 15 μF","P = 184.952 mW","Q = 165.428 μC"]
+#4 InductorElm posts=2 V=-11.19620424202077 I=0.016770362172898394 ["inductor","I = 16.77 mA","Vd = 11.196 V","L = 1 H","P = -187.764 mW"]
+#5 VoltageElm posts=2 V=5 I=0 ["voltage source","I = 0 A","Vd = 5 V","P = 0 W"]
+#6 ResistorElm posts=2 V=-2.220446049250459e-13 I=-2.220446049250459e-15 ["resistor","I = 0 A","Vd = 0.222 pV","R = 100 Ω","P = 0 W"]
+--- try add element via DOM palette? skip ---</pre>
+<script>
+const out=document.getElementById('out'), L=[], log=s=>L.push(s);
+const NET='$ 1 5.0E-6 10 50 5.0 50\n'+
+  'r 176 176 288 176 0 100.0\n'+
+  'v 176 288 176 176 0 0 40.0 5.0 0.0 0.0 0.5\n'+
+  'w 288 176 288 288 0\n'+
+  'w 176 288 288 288 0\n'+
+  'a 40 200 120 200 0\n'+
+  'O 288 240 360 240 0\n'+
+  'L 288 176 360 176\n'+
+  'g 288 288 288 320 0\n';
+const f=document.createElement('iframe'); f.src='./circuitjs.html?lang=en';
+f.style='position:absolute;left:0;top:0;width:1100px;height:800px;border:0'; document.body.appendChild(f);
+f.addEventListener('load',()=>{ const t0=Date.now();
+ const wait=()=>{ const w=f.contentWindow; if(!w||!w.CircuitJS1){ if(Date.now()-t0<12000) return setTimeout(wait,200); log('no api'); return done(); }
+  const api=w.CircuitJS1;
+  try{ api.importCircuit(NET,false); log('import ok'); }catch(e){ log('import err '+e.message); return done(); }
+  setTimeout(()=>{ try{ const els=api.getElements(); log('n='+els.length);
+    els.forEach((e,i)=>{ let j=''; try{j=JSON.stringify(e.getInfo());}catch(x){}
+      log('#'+i+' '+e.getType()+' posts='+e.getPostCount()+' V='+e.getVoltageDiff()+' I='+e.getCurrent()+' '+j); });
+    log('--- try add element via DOM palette? skip ---');
+    done(); }catch(e){ log('err '+e.message); done(); } },1000);
+ };
+ wait(); });
+function done(){ out.textContent=L.join('\n'); document.title='DONE'; }
+</script><iframe src="./circuitjs.html?lang=en" style="position: absolute; left: 0px; top: 0px; width: 1100px; height: 800px; border: 0px;"></iframe>
+</body></html>

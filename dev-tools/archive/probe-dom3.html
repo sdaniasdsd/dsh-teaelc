@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>DONE</title></head><body><pre id="out">import ok, running=true
+els=7
+ #0 ResistorElm posts=2 V=-0.05022096164995915 I=-0.005022096164995915 info=["resistor","I = 5.022 mA","Vd = 50.221 mV","R = 10 Ω","P = 252.214 μW"]
+ #1 SwitchElm posts=2 V=-16.718750250318784 I=0 info=["switch (SPST)","open","Vd = 16.719 V"]
+ #2 WireElm posts=2 V=-11.768971211968745 I=0.005022096164995915 info=["wire","I = 5.022 mA","V = -11.769 V"]
+ #3 CapacitorElm posts=2 V=11.768971211968145 I=-0.005022096164992718 info=["capacitor","I = 5.022 mA","Vd = 11.769 V","C = 15 μF","P = -59.105 mW","Q = 176.535 μC"]
+ #4 InductorElm posts=2 V=-11.718750250318186 I=-0.005022096164995909 info=["inductor","I = 5.022 mA","Vd = 11.719 V","L = 1 H","P = 58.853 mW"]
+ #5 VoltageElm posts=2 V=5 I=0 info=["voltage source","I = 0 A","Vd = 5 V","P = 0 W"]
+ #6 ResistorElm posts=2 V=-5.995204332976239e-13 I=-5.995204332976239e-15 info=["resistor","I = 0 A","Vd = 0.6 pV","R = 100 Ω","P = 0 W"]
+svg len=9</pre>
+<script>
+const out = document.getElementById('out'); const L=[]; const log=s=>L.push(s);
+const NET = '$ 1 5.0E-6 10 50 5.0 50\n'+
+ 'r 176 176 320 176 0 100.0\n'+
+ 'v 176 176 176 288 0 0 40.0 5.0 0.0 0.0 0.5\n'+
+ 'w 176 288 320 288 0\n'+
+ 'w 320 176 320 288 0\n'+
+ 'g 320 288 320 304 0\n'+
+ 'a 100 200 200 200 0\n';   // ammeter? fudge
+const f=document.createElement('iframe');
+f.src='./circuitjs.html?lang=en';
+f.style.cssText='position:absolute;left:0;top:0;width:1000px;height:700px;border:0';
+document.body.appendChild(f);
+f.addEventListener('load',()=>{
+ const t0=Date.now();
+ const wait=()=>{
+  const w=f.contentWindow;
+  if(!w||!w.CircuitJS1){ if(Date.now()-t0<15000) return setTimeout(wait,200); log('no api'); return done(); }
+  const api=w.CircuitJS1;
+  try{
+   api.importCircuit(NET,true);
+   log('import ok, running='+api.isRunning());
+   ['==', '$'].forEach(m=>{});
+   setTimeout(()=>{
+     const els=api.getElements();
+     log('els='+els.length);
+     els.forEach((e,i)=>{ let info=''; try{info=JSON.stringify(e.getInfo());}catch(x){}
+       log(' #'+i+' '+e.getType()+' posts='+e.getPostCount()+' V='+e.getVoltageDiff()+' I='+e.getCurrent()+' info='+info); });
+     // Try Circle/svg export
+     try{ log('svg len='+String(api.getCircuitAsSVG()).length); }catch(e){ log('svg err '+e.message); }
+     done();
+   },1200);
+  }catch(e){ log('import err '+e.message); done(); }
+ };
+ wait();
+});
+function done(){ out.textContent=L.join('\n'); document.title='DONE'; }
+</script><iframe src="./circuitjs.html?lang=en" style="position: absolute; left: 0px; top: 0px; width: 1000px; height: 700px; border: 0px;"></iframe>
+</body></html>

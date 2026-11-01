@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>DONE</title></head><body><pre id="out">n0=7 canvas=1034x730 rect={"x":0,"y":70,"width":1034,"height":730,"top":70,"right":1034,"bottom":800,"left":0}
+after r+click n1=7 types=ResistorElm,SwitchElm,WireElm,CapacitorElm,InductorElm,VoltageElm,ResistorElm
+after w n=7 types=ResistorElm,SwitchElm,WireElm,CapacitorElm,InductorElm,VoltageElm,ResistorElm</pre>
+<script>
+const out=document.getElementById('out'), L=[], log=s=>L.push(s);
+const f=document.createElement('iframe'); f.src='./circuitjs.html?lang=zh';
+f.style='position:absolute;left:0;top:0;width:1200px;height:800px;border:0'; document.body.appendChild(f);
+f.addEventListener('load',()=>{ setTimeout(()=>{
+  const d=f.contentDocument, w=f.contentWindow;
+  const api=w.CircuitJS1;
+  const cvs=[...d.querySelectorAll('canvas')].sort((a,b)=>b.width-a.width)[0];
+  function key(k){ 
+    w.dispatchEvent(new KeyboardEvent('keydown',{key:k,code:'Key'+k.toUpperCase(),keyCode:k.charCodeAt(0),bubbles:true}));
+    d.dispatchEvent(new KeyboardEvent('keydown',{key:k,code:'Key'+k.toUpperCase(),keyCode:k.charCodeAt(0),bubbles:true}));
+  }
+  function clickAt(t,cx,cy){
+    const rect=cvs.getBoundingClientRect();
+    const ev=(t,cx,cy)=>cvs.dispatchEvent(new MouseEvent(t,{bubbles:true,clientX:rect.left+cx,clientY:rect.top+cy,button:0,which:1,offsetX:cx,offsetY:cy}));
+    ev('mousedown',cx,cy); ev('mouseup',cx,cy);
+  }
+  const n0=api.getElements().length;
+  log('n0='+n0+' canvas='+cvs.width+'x'+cvs.height+' rect='+JSON.stringify(cvs.getBoundingClientRect()));
+  key('r');
+  setTimeout(()=>{
+    clickAt('mousedown',300,200);
+    setTimeout(()=>{
+      const n1=api.getElements().length;
+      log('after r+click n1='+n1+' types='+api.getElements().map(e=>e.getType()).join(','));
+      key('w');
+      setTimeout(()=>{ clickAt('mousedown',300,200);
+        setTimeout(()=>{ log('after w n='+api.getElements().length+' types='+api.getElements().map(e=>e.getType()).join(',')); 
+          out.textContent=L.join('\n'); document.title='DONE'; },500);
+      },300);
+    },500);
+  },300);
+}, 6000); });
+</script><iframe src="./circuitjs.html?lang=zh" style="position: absolute; left: 0px; top: 0px; width: 1200px; height: 800px; border: 0px;"></iframe>
+</body></html>

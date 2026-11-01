@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"></head><body><pre id="out">pending</pre>
+<script>
+const out=document.getElementById('out'), L=[], log=s=>L.push(s);
+window.addEventListener('load',()=>{
+  const f=document.getElementById('simframe'), p=document.getElementById('panel');
+  const w=f.contentWindow, panelW=window;
+  setTimeout(()=>{
+    // drive the panel's own button: 电阻 (index 1 in PARTS)
+    const btn=[...p.querySelectorAll('.dc-part-btn')].find(b=>b.textContent.includes('电阻'));
+    log('resistor button='+(btn?'found':'missing'));
+    btn.click();
+    setTimeout(()=>{
+      log('placeHint='+p.querySelector('.dc-place-hint').textContent);
+      const d=w.document;
+      const cvs=[...d.querySelectorAll('canvas')].sort((a,b)=>b.width-a.width)[0];
+      const rect=cvs.getBoundingClientRect();
+      const M=(t,cx,cy)=>cvs.dispatchEvent(new MouseEvent(t,{bubbles:true,clientX:rect.left+cx,clientY:rect.top+cy,button:0}));
+      M('mousedown',240,180); M('mousemove',300,180); M('mouseup',300,180);
+      setTimeout(()=>{
+        const types=w.CircuitJS1.getElements().map(e=>e.getType());
+        log('types='+types.join(','));
+        // add voltage channel for the last resistor
+        const addBtns=[...p.querySelectorAll('.dc-add-ch')];
+        log('addch buttons='+addBtns.length);
+        // click '+ 电压' on the last row (the new resistor)
+        const rows=[...p.querySelectorAll('table.dc-table tbody tr')];
+        log('rows='+rows.length+' last='+(rows[rows.length-1]?rows[rows.length-1].textContent.slice(0,40):'-'));
+        if(rows.length){ const vb=[...rows[rows.length-1].querySelectorAll('.dc-add-ch')].find(b=>b.textContent.includes('电压')); if(vb) vb.click(); }
+        setTimeout(()=>{
+          log('chips='+[...p.querySelectorAll('.dc-chip')].map(c=>c.textContent.trim()).join(' | '));
+          log('scope empty visible='+(p.querySelector('.dc-scope-empty')?getComputedStyle(p.querySelector('.dc-scope-empty')).display:'?'));
+          // challenge
+          const chal=[...p.querySelectorAll('.dc-chal')].find(c=>c.textContent.includes('欧姆定律'));
+          log('challenge='+(chal?'found':'missing'));
+          chal.click();
+          setTimeout(()=>{
+            const check=[...p.querySelectorAll('.dc-btn')].find(b=>b.textContent.includes('检查我的电路'));
+            log('checkBtn='+(check?'found':'missing'));
+            if(check) check.click();
+            setTimeout(()=>{
+              const res=[...p.querySelectorAll('.dc-check-row')].map(r=>r.textContent.trim()).join(' ;; ');
+              log('results='+res);
+              out.textContent=L.join('\n'); document.title='DONE';
+            }, 900);
+          }, 500);
+        }, 1400);
+      }, 700);
+    }, 400);
+  }, 12000);
+});
+</script>
+</body></html>

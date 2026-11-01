@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>DONE</title></head><body><pre id="out">r -&gt; n=7 types=ResistorElm,SwitchElm,WireElm,CapacitorElm,InductorElm,VoltageElm,ResistorElm info=["resistor","I = 47.226 mA","Vd = 472.262 mV","R = 10 Ω","P = 22.303 mW"]
+w -&gt; n=1 types=WireElm info=["wire","I = 0 A","V = 0 V"]
+g -&gt; n=1 types=GroundElm info=["ground","I = 0 A"]
+v -&gt; n=1 types=VoltageElm info=["voltage source","I = 0 A","Vd = 5 V","P = 0 W"]
+b -&gt; n=1 types=BoxElm info=[]
+s -&gt; n=1 types=SwitchElm info=["switch (SPST)","open","Vd = 0 V"]
+c -&gt; n=1 types=CapacitorElm info=["capacitor","I = 0 A","Vd = 0 V","C = 1 μF","P = 0 W","Q = 0 C"]
+l -&gt; n=1 types=InductorElm info=["inductor","I = 0 A","Vd = 0 V","L = 1 H","P = 0 W"]
+d -&gt; n=1 types=DiodeElm info=["diode (default)","I = 0 A","Vd = 0 V","P = 0 W"]
+a -&gt; n=1 types=OpAmpElm info=["op-amp","V+ = 0 V","V- = 0 V","Vout = 0 V","Iout = 0 A","range = -15 V to 15 V"]
+O -&gt; n=1 types=OutputElm info=["output","V = 0 V"]
+L -&gt; n=1 types=LogicInputElm info=["logic input","2 (5 V)","I = 0 A"]
+t -&gt; n=1 types=TransistorElm info=["transistor (NPN)","default, β=100","cutoff","Ic = 0 A","Ib = 0 A","Vbe = 0 V","Vbc = 0 V","Vce = 0 V","P = 0 W"]</pre>
+<script>
+const out=document.getElementById('out'), L=[], log=s=>L.push(s);
+const f=document.createElement('iframe'); f.src='./circuitjs.html?lang=en';
+f.style='position:absolute;left:-3000px;top:0;width:900px;height:700px;border:0'; document.body.appendChild(f);
+f.addEventListener('load',()=>{ const t0=Date.now();
+ const wait=()=>{ const w=f.contentWindow; if(!w||!w.CircuitJS1){ if(Date.now()-t0<12000) return setTimeout(wait,200); log('no api'); return done(); }
+  const api=w.CircuitJS1;
+  const tests = {
+    'r':'r 100 100 200 100 0 100.0',
+    'w':'w 100 100 200 100 0',
+    'g':'g 200 100 200 130 0',
+    'v':'v 100 200 100 100 0 0 40 5 0',
+    'b':'b 100 300 100 200 0',
+    's':'s 200 200 300 200 0 1 false',
+    'c':'c 200 300 300 300 0 0.000001 0',
+    'l':'l 200 400 300 400 0 1.0 0',
+    'd':'d 200 500 300 500 1 0.805904783',
+    'a':'a 200 600 300 600 0',
+    'O':'O 400 100 460 100 0',
+    'L':'L 400 200 340 200 1 2 false 5.0 0.0',
+    't':'t 400 300 440 300 0 1 0 0 100'
+  };
+  let keys=Object.keys(tests), i=0;
+  const next=()=>{
+    if(i>=keys.length) return done();
+    const k=keys[i++];
+    const net='$ 1 5.0E-6 10 50 5.0 50\n'+tests[k]+'\n';
+    try{ api.importCircuit(net,false); }catch(e){ log(k+' import err '+e.message); return next(); }
+    setTimeout(()=>{
+      try{
+        const els=api.getElements();
+        log(k+' -> n='+els.length+' types='+els.map(e=>e.getType()).join(',') + (els[0]? ' info='+JSON.stringify(els[0].getInfo()).slice(0,120):''));
+      }catch(e){ log(k+' err '+e.message); }
+      next();
+    }, 400);
+  };
+  next();
+ };
+ wait(); });
+function done(){ out.textContent=L.join('\n'); document.title='DONE'; }
+</script><iframe src="./circuitjs.html?lang=en" style="position: absolute; left: -3000px; top: 0px; width: 900px; height: 700px; border: 0px;"></iframe>
+</body></html>

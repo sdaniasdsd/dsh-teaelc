@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>DONE</title></head><body><pre id="out">import ok
+els=7
+ #0 ResistorElm posts=2 V=-0.03436265319597531 I=-0.003436265319597531 info=["resistor","I = 3.436 mA","Vd = 34.363 mV","R = 10 Ω","P = 118.079 μW"]
+ #1 SwitchElm posts=2 V=-16.772676638152973 I=0 info=["switch (SPST)","open","Vd = 16.773 V"]
+ #2 WireElm posts=2 V=-11.807039291348948 I=0.003436265319597531 info=["wire","I = 3.436 mA","V = -11.807 V"]
+ #3 CapacitorElm posts=2 V=11.807039291347705 I=-0.003436265319578524 info=["capacitor","I = 3.436 mA","Vd = 11.807 V","C = 15 μF","P = -40.572 mW","Q = 177.106 μC"]
+ #4 InductorElm posts=2 V=-11.77267663815173 I=-0.003436265319597419 info=["inductor","I = 3.436 mA","Vd = 11.773 V","L = 1 H","P = 40.454 mW"]
+ #5 VoltageElm posts=2 V=5 I=0 info=["voltage source","I = 0 A","Vd = 5 V","P = 0 W"]
+ #6 ResistorElm posts=2 V=-1.2434497875802571e-12 I=-1.243449787580257e-14 info=["resistor","I = 0.012 pA","Vd = 1.243 pV","R = 100 Ω","P = 0 W"]</pre>
+<script>
+const out=document.getElementById('out'), L=[], log=s=>L.push(s);
+const NET='$ 1 5.0E-6 10 50 5.0 50\n'+
+ 'r 176 176 320 176 0 100.0\n'+
+ 'v 176 176 176 288 0 0 40.0 5.0 0.0 0.0 0.5\n'+
+ 'w 176 288 320 288 0\n'+
+ 'w 320 176 320 288 0\n'+
+ 'g 320 288 320 304 0\n'+
+ 'a 100 200 200 200 0\n'+
+ 'O 320 288 400 288 1\n';
+const f=document.createElement('iframe'); f.src='./circuitjs.html?lang=en';
+f.style='position:absolute;left:0;top:0;width:1000px;height:700px;border:0'; document.body.appendChild(f);
+f.addEventListener('load',()=>{ const t0=Date.now();
+ const wait=()=>{ const w=f.contentWindow; if(!w||!w.CircuitJS1){ if(Date.now()-t0<15000) return setTimeout(wait,200); log('no api'); return done(); }
+  const api=w.CircuitJS1;
+  try{ api.importCircuit(NET,true); log('import ok');
+    setTimeout(()=>{ const els=api.getElements(); log('els='+els.length);
+      els.forEach((e,i)=>{ log(' #'+i+' '+e.getType()+' posts='+e.getPostCount()+' V='+e.getVoltageDiff()+' I='+e.getCurrent()+' info='+JSON.stringify(e.getInfo())); });
+      done(); },1200);
+  }catch(e){ log('err '+e.message); done(); } };
+ wait(); });
+function done(){ out.textContent=L.join('\n'); document.title='DONE'; }
+</script><iframe src="./circuitjs.html?lang=en" style="position: absolute; left: 0px; top: 0px; width: 1000px; height: 700px; border: 0px;"></iframe>
+</body></html>

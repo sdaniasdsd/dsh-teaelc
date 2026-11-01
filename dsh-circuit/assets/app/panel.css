@@ -1,0 +1,790 @@
+/* dsh-circuit 学生面板样式。深色主题，与 DSH 深色界面协调；面板宽度由外壳固定。 */
+
+:root {
+  --bg: #0d1117;
+  --bg-soft: #151b23;
+  --bg-card: #161d26;
+  --line: #22303c;
+  --line-soft: #1c2732;
+  --text: #e6edf3;
+  --text-dim: #9aa7b4;
+  --text-faint: #6b7885;
+  --accent: #4ea1ff;
+  --accent-dim: #1f6feb33;
+  --ok: #3fb950;
+  --warn: #d29922;
+  --bad: #f85149;
+}
+
+body { background: var(--bg); color: var(--text); }
+
+#panel {
+  padding: 12px 14px;
+  font-size: 13px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  /* 竖向分区而不是整块滚动：示波器要始终可见，不能滚到折叠线以外。 */
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  height: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+/* 上半部分可滚动（元件快选 / 测量台 / 挑战），下半部分示波器固定 */
+#panel .dc-scrollblock {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+#panel .dc-scope-slot {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.dc-head { margin-bottom: 14px; }
+.dc-title {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: .5px;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.dc-title .dc-badge {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-faint);
+  border: 1px solid var(--line-soft);
+  border-radius: 4px;
+  padding: 1px 5px;
+  letter-spacing: 0;
+}
+.dc-sub { color: var(--text-dim); font-size: 12px; margin-top: 3px; }
+
+.dc-section {
+  background: var(--bg-soft);
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+  margin-bottom: 12px;
+  overflow: hidden;
+}
+.dc-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--line-soft);
+  background: #111821;
+}
+.dc-section-head h2 {
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: .6px;
+  color: #cfe3ff;
+}
+.dc-section-head .dc-hint { color: var(--text-faint); font-size: 11px; }
+.dc-section-body { padding: 10px 12px 12px; }
+
+/* ---- 元件快选 ---- */
+.dc-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
+.dc-part-btn {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: #18212b;
+  color: var(--text);
+  border-radius: 7px;
+  padding: 5px 3px 4px;
+  font-size: 11.5px;
+  line-height: 1.25;
+  cursor: pointer;
+  transition: background .12s ease, border-color .12s ease, transform .06s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  font-family: inherit;
+}
+.dc-part-btn:hover { background: #1d2a37; border-color: #2f4a63; }
+.dc-part-btn:active { transform: translateY(1px); }
+.dc-part-btn .dc-part-glyph { font-size: 13px; line-height: 1; opacity: .95; }
+.dc-part-btn .dc-part-name { white-space: nowrap; }
+.dc-place-hint {
+  margin-top: 9px;
+  color: var(--text-faint);
+  font-size: 11.5px;
+  min-height: 16px;
+}
+.dc-place-hint.is-live { color: var(--accent); }
+
+/* ---- 测量台 ---- */
+.dc-toolbar { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 9px; }
+.dc-btn {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: #18212b;
+  color: var(--text);
+  border-radius: 7px;
+  padding: 5px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background .12s ease, border-color .12s ease;
+}
+.dc-btn:hover { background: #1d2a37; border-color: #2f4a63; }
+.dc-btn.is-on { background: var(--accent-dim); border-color: #2f6fbf; color: #cfe3ff; }
+.dc-btn.is-danger:hover { border-color: #7a2f2c; background: #241618; }
+
+.dc-simstate {
+  display: flex;
+  gap: 12px;
+  color: var(--text-dim);
+  font-size: 11.5px;
+  margin-bottom: 8px;
+  font-variant-numeric: tabular-nums;
+}
+.dc-simstate b { color: var(--text); font-weight: 600; }
+
+.dc-table-wrap { max-height: 158px; overflow: auto; border: 1px solid var(--line-soft); border-radius: 8px; }
+table.dc-table { width: 100%; border-collapse: collapse; font-size: 11.5px; font-variant-numeric: tabular-nums; }
+table.dc-table thead th {
+  position: sticky;
+  top: 0;
+  background: #111821;
+  color: var(--text-faint);
+  font-weight: 600;
+  text-align: left;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--line-soft);
+  white-space: nowrap;
+}
+table.dc-table tbody td { padding: 5px 8px; border-bottom: 1px solid #172029; }
+table.dc-table tbody tr:last-child td { border-bottom: 0; }
+table.dc-table tbody tr.is-hot { background: #16202b; }
+.dc-type { color: #a7c9f0; }
+.dc-val { text-align: right; color: var(--text); }
+.dc-val.dc-zero { color: var(--text-faint); }
+.dc-add-ch {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--text-dim);
+  border-radius: 5px;
+  font-size: 11px;
+  padding: 1px 6px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.dc-add-ch:hover { color: var(--text); border-color: #2f4a63; }
+.dc-empty { color: var(--text-faint); font-size: 12px; padding: 10px 2px; }
+
+/* ---- 波形 ---- */
+.dc-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; min-height: 22px; }
+.dc-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 2px 8px 2px 7px;
+  font-size: 11px;
+  color: var(--text-dim);
+  background: #141c25;
+}
+.dc-chip .dc-dot { width: 8px; height: 8px; border-radius: 50%; }
+.dc-chip .dc-chip-x {
+  cursor: pointer;
+  border: 0;
+  background: transparent;
+  color: var(--text-faint);
+  font-size: 12px;
+  line-height: 1;
+  padding: 0 0 0 2px;
+  font-family: inherit;
+}
+.dc-chip .dc-chip-x:hover { color: var(--bad); }
+
+.dc-scope-wrap { position: relative; border: 1px solid var(--line-soft); border-radius: 8px; background: #060a0f; overflow: hidden; }
+canvas.dc-scope { display: block; width: 100%; height: 200px; }
+.dc-scope-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-faint);
+  font-size: 12px;
+  text-align: center;
+  padding: 0 18px;
+  pointer-events: none;
+}
+.dc-scope-meta {
+  display: flex;
+  justify-content: space-between;
+  color: var(--text-faint);
+  font-size: 10.5px;
+  margin-top: 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- 挑战 ---- */
+.dc-chal-list { display: flex; flex-direction: column; gap: 5px; }
+.dc-chal {
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  padding: 8px 10px;
+  cursor: pointer;
+  background: #141c25;
+  transition: border-color .12s ease, background .12s ease;
+}
+.dc-chal:hover { border-color: #2f4a63; background: #17222d; }
+.dc-chal.is-active { border-color: #2f6fbf; background: #16223a; }
+.dc-chal-title { font-size: 12.5px; font-weight: 600; }
+.dc-chal-sub { color: var(--text-faint); font-size: 11px; margin-top: 2px; }
+.dc-chal-body { margin-top: 10px; }
+.dc-chal-brief { color: var(--text-dim); font-size: 12px; margin-bottom: 8px; }
+.dc-chal-steps { margin: 0 0 10px; padding-left: 16px; color: var(--text-dim); font-size: 12px; }
+.dc-chal-steps li { margin-bottom: 4px; }
+.dc-check-result { margin-top: 8px; display: flex; flex-direction: column; gap: 4px; }
+.dc-check-row { display: flex; gap: 8px; align-items: flex-start; font-size: 11.5px; }
+.dc-check-icon { flex: 0 0 auto; width: 15px; text-align: center; font-weight: 700; }
+.dc-check-icon.ok { color: var(--ok); }
+.dc-check-icon.bad { color: var(--bad); }
+.dc-check-text { color: var(--text-dim); }
+.dc-check-text.ok { color: #9fe3ab; }
+.dc-check-text.bad { color: #ffb3ab; }
+
+.dc-foot {
+  color: var(--text-faint);
+  font-size: 10.5px;
+  line-height: 1.6;
+  margin-top: 14px;
+  border-top: 1px solid var(--line-soft);
+  padding-top: 10px;
+}
+.dc-foot a { color: #7bb4ef; text-decoration: none; }
+.dc-foot a:hover { text-decoration: underline; }
+
+.dc-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  background: #1b2530;
+  border: 1px solid #2f4a63;
+  color: var(--text);
+  padding: 7px 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  opacity: 0;
+  transition: opacity .18s ease;
+  pointer-events: none;
+  z-index: 10;
+}
+.dc-toast.is-show { opacity: 1; }
+
+/* ---- 波形区增强（v0.2：解释 + 统计 + 单次捕获） ---- */
+.dc-why {
+  color: var(--text-dim);
+  font-size: 11.5px;
+  line-height: 1.6;
+  margin-bottom: 9px;
+  padding: 7px 9px;
+  background: #10171f;
+  border-left: 2px solid #2f6fbf;
+  border-radius: 0 6px 6px 0;
+}
+.dc-scope-empty-title {
+  font-size: 12.5px;
+  color: #8b98a5;
+  font-weight: 600;
+  margin-bottom: 5px;
+}
+.dc-scope-empty-body {
+  font-size: 11px;
+  color: var(--text-faint);
+  line-height: 1.55;
+  max-width: 250px;
+}
+.dc-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 7px;
+}
+.dc-stat-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-dim);
+}
+.dc-stat-row .dc-dot { flex: 0 0 auto; }
+.dc-stat-name { flex: 0 0 auto; max-width: 92px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dc-stat-kv { color: var(--text-faint); }
+.dc-stat-kv:nth-child(3) { color: #7fb3e8; }
+.dc-stat-kv:nth-child(4) { color: #8fd694; }
+
+/* 可折叠区块标题 */
+.dc-section-head.dc-collapsible { cursor: pointer; user-select: none; }
+.dc-section-head.dc-collapsible:hover { background: #131b24; }
+.dc-section-head.dc-collapsible h2 { flex: 1; }
+
+/* 取消放置按钮：放置态才出现，视觉上要显眼 */
+.dc-btn-cancel {
+  border-color: #7a4a2c;
+  background: #2a1d14;
+  color: #f0b37e;
+}
+.dc-btn-cancel:hover { border-color: #b06a3c; background: #352317; color: #ffd0a8; }
+
+/* ---- 测量台行内通道开关（v3） ---- */
+.dc-ch-cell { white-space: nowrap; text-align: center; }
+.dc-ch-toggle {
+  appearance: none;
+  width: 26px;
+  height: 20px;
+  margin: 0 1px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: #18212b;
+  color: var(--text-faint);
+  font-size: 10.5px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all .12s ease;
+  padding: 0;
+}
+.dc-ch-toggle:hover { border-color: #2f6fbf; color: #9fd0ff; }
+.dc-ch-toggle.is-on {
+  background: #1f3d5c;
+  border-color: #4ea1ff;
+  color: #cfe3ff;
+}
+
+
+
+/* v3 布局：示波器 section 在固定槽里占满，foot 压缩 */
+#panel .dc-scope-slot .dc-section {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+#panel .dc-scope-slot .dc-section-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+#panel .dc-scope-slot .dc-scope-wrap {
+  flex: 1 1 auto;
+  min-height: 120px;
+}
+#panel .dc-foot {
+  margin-top: 0;
+  padding-top: 6px;
+  border-top: 1px solid var(--line-soft);
+  flex: 0 0 auto;
+  font-size: 10px;
+}
+
+/* ================= v4：可拖动区块 + 专业示波器 ================= */
+
+/* 分隔条：拖动调整上下区块高度 */
+.dc-splitter {
+  flex: 0 0 6px;
+  height: 6px;
+  margin: 2px 0;
+  cursor: row-resize;
+  background: linear-gradient(to bottom, transparent 2px, #2a3a49 2px, #2a3a49 4px, transparent 4px);
+  border-radius: 3px;
+  transition: background .12s ease;
+}
+.dc-splitter:hover {
+  background: linear-gradient(to bottom, transparent 1px, #4ea1ff 1px, #4ea1ff 5px, transparent 5px);
+}
+
+/* 面板整体：竖向 flex，区块按显式高度排列 */
+#panel { gap: 0; }
+#panel .dc-section { margin-bottom: 0; }
+#panel .dc-head { flex: 0 0 auto; margin-bottom: 8px; }
+
+/* ---- 示波器控制条 ---- */
+.dc-scope-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-bottom: 6px;
+}
+.dc-scope-cap {
+  color: var(--text-faint);
+  font-size: 10.5px;
+  letter-spacing: .3px;
+}
+.dc-scope-select {
+  appearance: none;
+  background: #18212b;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 11px;
+  padding: 3px 6px;
+  cursor: pointer;
+  outline: none;
+}
+.dc-scope-select:hover { border-color: #2f4a63; }
+.dc-scope-select:focus { border-color: #4ea1ff; }
+
+/* ---- 通道开关芯片 ---- */
+.dc-chip-name {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  color: var(--text-dim);
+  font-family: inherit;
+  font-size: 11px;
+  padding: 0;
+  cursor: pointer;
+  border-bottom: 1px dotted transparent;
+}
+.dc-chip-name:hover { color: var(--text); border-bottom-color: #3a4c5e; }
+.dc-chip-name.is-off {
+  color: #55636f;
+  text-decoration: line-through;
+}
+
+/* ---- 示波器读数条（峰峰 / RMS / 频率） ---- */
+.dc-readouts {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 6px;
+}
+.dc-readout-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-dim);
+}
+.dc-readout-row .dc-dot { flex: 0 0 auto; }
+.dc-readout-name {
+  flex: 0 0 auto;
+  max-width: 88px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}
+.dc-readout-kv { color: #9fb4c7; white-space: nowrap; }
+.dc-readout-kv i {
+  color: var(--text-faint);
+  font-style: normal;
+  font-size: 9.5px;
+  margin-right: 2px;
+}
+.dc-readout-na { color: #5c6b79; }
+.dc-readout-empty { color: var(--text-faint); font-size: 10.5px; }
+
+/* 示波器画布在固定槽里可伸缩 */
+#dc-scope-section { display: flex; flex-direction: column; min-height: 0; }
+#dc-scope-section .dc-section-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+#dc-scope-section .dc-scope-wrap { flex: 1 1 auto; min-height: 110px; }
+
+/* ================= v5：浮动窗口 + 探头通道 ================= */
+
+/* 面板变成画布上的浮层容器 */
+#panel.dc-floating {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  display: block;
+  padding: 0;
+  background: transparent;
+}
+
+/* 单个浮动窗口 */
+.dc-win {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  pointer-events: auto;
+  background: #151b23;
+  border: 1px solid #2a3a49;
+  border-radius: 10px;
+  box-shadow: 0 8px 28px #000000cc;
+  overflow: hidden;
+  min-width: 220px;
+  min-height: 120px;
+}
+
+.dc-win-bar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 6px 0 10px;
+  background: #1b2430;
+  border-bottom: 1px solid #2a3a49;
+  cursor: move;
+  user-select: none;
+}
+.dc-win-title {
+  flex: 0 0 auto;
+  font-size: 12px;
+  font-weight: 700;
+  color: #cfe3ff;
+  letter-spacing: .4px;
+}
+.dc-win-grip { flex: 1 1 auto; }
+.dc-win-btn {
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: #8b98a5;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  font-family: inherit;
+  padding: 0;
+}
+.dc-win-btn:hover { background: #26323f; color: #e6edf3; border-color: #3a4c5e; }
+
+.dc-win-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+}
+.dc-win-body .dc-section {
+  border: 0;
+  border-radius: 0;
+  margin: 0;
+  background: transparent;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.dc-win-body .dc-section-head { display: none; }
+.dc-win-body .dc-section-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 8px 10px 10px;
+}
+.dc-win-body #dc-scope-section .dc-scope-wrap {
+  flex: 1 1 auto;
+  min-height: 100px;
+}
+
+.dc-win-resize {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 14px;
+  height: 14px;
+  cursor: nwse-resize;
+  background:
+    linear-gradient(135deg, transparent 0 55%, #3a4c5e 55% 65%, transparent 65% 75%, #3a4c5e 75% 85%, transparent 85%);
+}
+
+/* ---- 探头通道行 ---- */
+.dc-probe-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 7px;
+}
+.dc-probe-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10.5px;
+}
+.dc-probe-sel {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 130px;
+  font-size: 10.5px;
+  padding: 2px 4px;
+}
+.dc-probe-minus {
+  color: var(--text-faint);
+  font-weight: 700;
+  flex: 0 0 auto;
+}
+.dc-probe-empty {
+  color: var(--text-faint);
+  font-size: 10.5px;
+  line-height: 1.5;
+  padding: 2px 0 6px;
+}
+
+/* 探头图案容器 */
+.dc-probe-chip {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  width: 14px;
+  height: 14px;
+}
+.dc-probe-chip svg { display: block; }
+
+/* 示波器水平/垂直位置滑块 */
+.dc-scope-range {
+  flex: 0 0 auto;
+  width: 74px;
+  height: 14px;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+  margin: 0;
+}
+.dc-scope-range::-webkit-slider-runnable-track {
+  height: 3px;
+  background: #2a3a49;
+  border-radius: 2px;
+}
+.dc-scope-range::-webkit-slider-thumb {
+  appearance: none;
+  width: 10px;
+  height: 10px;
+  margin-top: -3.5px;
+  border-radius: 50%;
+  background: #4ea1ff;
+  border: 1px solid #1b2a36;
+}
+.dc-scope-range:hover::-webkit-slider-thumb { background: #79c0ff; }
+
+/* 滚轮缩放提示 */
+.dc-scope-hint {
+  color: var(--text-faint);
+  font-size: 10px;
+  padding: 2px 4px;
+  border: 1px dashed #2a3a49;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+/* 通道行：色点 + CHn + 正端探头 + 负端探头 + 开关 + 删除 */
+.dc-probe-ch {
+  flex: 0 0 auto;
+  font-size: 10px;
+  font-weight: 700;
+  color: #cfe3ff;
+  letter-spacing: .5px;
+  min-width: 24px;
+}
+.dc-probe-plus {
+  flex: 0 0 auto;
+  color: #4ea1ff;
+  font-size: 10px;
+  font-weight: 700;
+}
+.dc-probe-row .dc-probe-sel {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: none;
+}
+.dc-probe-hint {
+  color: var(--text-faint);
+  font-size: 10.5px;
+  line-height: 1.5;
+  padding: 3px 0 5px;
+}
+
+/* ---- 预设电路窗口 ---- */
+.dc-preset-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+.dc-preset-level {
+  font-size: 11px;
+  font-weight: 700;
+  color: #cfe3ff;
+  letter-spacing: 1px;
+  padding: 3px 0 2px;
+  border-bottom: 1px solid #22303c;
+}
+.dc-preset-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.dc-preset-btn {
+  appearance: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #18212b;
+  color: var(--text);
+  padding: 6px 8px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color .12s ease, background .12s ease;
+}
+.dc-preset-btn:hover { border-color: #2f6fbf; background: #1d2a37; }
+.dc-preset-btn.is-loading { opacity: .6; cursor: progress; }
+.dc-preset-name { font-size: 12px; font-weight: 600; }
+.dc-preset-note { font-size: 10px; color: var(--text-faint); line-height: 1.4; }
+.dc-preset-status {
+  font-size: 10.5px;
+  color: var(--text-faint);
+  line-height: 1.5;
+  padding: 4px 0;
+  min-height: 16px;
+}
+
+/* 通道单位徽章：V 蓝色、A 橙色，一眼区分电压/电流通道 */
+.dc-ch-unit {
+  flex: 0 0 auto;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 0 3px;
+  border-radius: 3px;
+  border: 1px solid #2f6fbf;
+  color: #9fd0ff;
+  line-height: 14px;
+}
+.dc-ch-unit.is-current {
+  border-color: #b06a3c;
+  color: #f0b37e;
+}

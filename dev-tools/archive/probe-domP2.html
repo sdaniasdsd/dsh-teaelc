@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>DONE</title></head><body>
+<iframe id="shell" src="/dsh-circuit/" style="width:1400px;height:900px;border:0"></iframe>
+<pre id="out">shell loaded, panel nodes=4 simframe=1
+resistor btn=found
+hint=先点元件，再在画布上按住拖动即可放置。
+api=ok
+types=ResistorElm,SwitchElm,WireElm,CapacitorElm,InductorElm,VoltageElm,ResistorElm
+rows=7
+chips=电阻 电压×
+checkBtn=found
+results=✓找到电压源 ;; ✓找到电阻 ;; ✗还没有接地（点"接地"放一个） ;; ✗电流是 9.25 mA，目标是 50 mA（±5%）</pre>
+<script>
+const out=document.getElementById('out'), L=[], log=s=>L.push(s);
+const shell=document.getElementById('shell');
+shell.addEventListener('load',()=>{
+  setTimeout(()=>{
+    try{
+      const p=shell.contentDocument, w=shell.contentWindow;
+      const sim=p.getElementById('simframe');
+      log('shell loaded, panel nodes='+p.querySelectorAll('.dc-section').length+' simframe='+(sim?1:0));
+      const btn=[...p.querySelectorAll('.dc-part-btn')].find(b=>b.textContent.includes('电阻'));
+      log('resistor btn='+(btn?'found':'missing'));
+      if(btn) btn.click();
+      setTimeout(()=>{
+        log('hint='+p.querySelector('.dc-place-hint').textContent.trim());
+        const api=sim.contentWindow.CircuitJS1;
+        log('api='+(api?'ok':'none'));
+        const d=sim.contentDocument;
+        const cvs=[...d.querySelectorAll('canvas')].sort((a,b)=>b.width-a.width)[0];
+        const rect=cvs.getBoundingClientRect();
+        const M=(t,cx,cy)=>cvs.dispatchEvent(new MouseEvent(t,{bubbles:true,clientX:rect.left+cx,clientY:rect.top+cy,button:0}));
+        M('mousedown',240,180); M('mousemove',300,180); M('mouseup',300,180);
+        setTimeout(()=>{
+          log('types='+api.getElements().map(e=>e.getType()).join(','));
+          const rows=[...p.querySelectorAll('table.dc-table tbody tr')];
+          log('rows='+rows.length);
+          if(rows.length){ const vb=[...rows[rows.length-1].querySelectorAll('.dc-add-ch')].find(b=>b.textContent.includes('电压')); if(vb) vb.click(); }
+          setTimeout(()=>{
+            log('chips='+[...p.querySelectorAll('.dc-chip')].map(c=>c.textContent.trim()).join(' | '));
+            const chal=[...p.querySelectorAll('.dc-chal')].find(c=>c.textContent.includes('欧姆定律'));
+            if(chal) chal.click();
+            setTimeout(()=>{
+              const check=[...p.querySelectorAll('.dc-btn')].find(b=>b.textContent.includes('检查'));
+              log('checkBtn='+(check?'found':'missing'));
+              if(check) check.click();
+              setTimeout(()=>{
+                log('results='+[...p.querySelectorAll('.dc-check-row')].map(r=>r.textContent.trim()).join(' ;; '));
+                out.textContent=L.join('\n'); document.title='DONE';
+              }, 1200);
+            }, 600);
+          }, 2000);
+        }, 900);
+      }, 500);
+    }catch(e){ log('ERR '+e.message); out.textContent=L.join('\n'); }
+  }, 10000);
+});
+</script>
+</body></html>

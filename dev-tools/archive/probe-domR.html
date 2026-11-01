@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>DONE</title></head><body>
+<iframe id="shell" src="/dsh-circuit/" style="width:1400px;height:900px;border:0"></iframe>
+<pre id="out">start types=ResistorElm,SwitchElm,WireElm,CapacitorElm,InductorElm,VoltageElm,ResistorElm
+电流表: toast=仿真内核已重新加载
+after ammeter: ResistorElm,SwitchElm,WireElm,CapacitorElm,InductorElm,VoltageElm,ResistorElm,AmmeterElm
+电压表: toast=仿真内核已重新加载
+after voltmeter: ResistorElm,SwitchElm,WireElm,CapacitorElm,InductorElm,VoltageElm,ResistorElm,AmmeterElm,ProbeElm
+电阻: toast=仿真内核已重新加载
+after resistor: ResistorElm,SwitchElm,WireElm,CapacitorElm,InductorElm,VoltageElm,ResistorElm,AmmeterElm,ProbeElm,ResistorElm</pre>
+<script>
+const out=document.getElementById('out'), L=[], log=s=>L.push(s);
+const shell=document.getElementById('shell');
+shell.addEventListener('load',()=>{
+  setTimeout(()=>{
+    const p=shell.contentDocument;
+    const sim=p.getElementById('simframe');
+    const sd=sim.contentDocument;
+    const api=sim.contentWindow.CircuitJS1;
+    const toast=()=>p.querySelector('.dc-toast')?p.querySelector('.dc-toast').textContent:'-';
+    async function place(name, x, y){
+      const btn=[...p.querySelectorAll('.dc-part-btn')].find(b=>b.textContent.includes(name));
+      if(!btn){ log(name+': button missing'); return; }
+      btn.click();
+      await new Promise(r=>setTimeout(r,250));
+      log(name+': toast='+toast());
+      const cv=[...sd.querySelectorAll('canvas')].sort((a,b)=>b.width-a.width)[0];
+      const rect=cv.getBoundingClientRect();
+      const M=(t,cx,cy)=>cv.dispatchEvent(new MouseEvent(t,{bubbles:true,clientX:rect.left+cx,clientY:rect.top+cy,button:0}));
+      M('mousedown',x,y); M('mousemove',x+60,y); M('mouseup',x+60,y);
+      await new Promise(r=>setTimeout(r,600));
+    }
+    (async()=>{
+      log('start types='+api.getElements().map(e=>e.getType()).join(','));
+      await place('电流表', 300, 200);
+      log('after ammeter: '+api.getElements().map(e=>e.getType()).join(','));
+      await place('电压表', 500, 200);
+      log('after voltmeter: '+api.getElements().map(e=>e.getType()).join(','));
+      await place('电阻', 300, 400);
+      log('after resistor: '+api.getElements().map(e=>e.getType()).join(','));
+      out.textContent=L.join('\n'); document.title='DONE';
+    })();
+  }, 10000);
+});
+</script>
+</body></html>

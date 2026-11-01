@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>DONE</title></head><body>
+<iframe id="shell" src="/dsh-circuit/" style="width:1400px;height:980px;border:0"></iframe>
+<pre id="out">=== 1. 清空电路 ===
+  元件数=0
+=== 2. 通过中文面板摆放元件 ===
+  成功摆放: 直流电源、电阻、接地、导线、电流表、电压表、电容、LED、灯泡、开关、电位器、标注节点（12/12）
+  内核元件类型: DCVoltageElm,ResistorElm,GroundElm,WireElm,AmmeterElm,ProbeElm,CapacitorElm,LEDElm,LampElm,SwitchElm,PotElm,LabeledNodeElm
+=== 3. 面板读数表 ===
+  面板行数=11
+  直流电源 5.000 V / 0  |  电阻 0 / 0  |  接地 0 / 0  |  导线 0 / 0  |  电流表 0 / 0  |  电压表/示波器探头 0 / 0</pre>
+<script>
+const out=document.getElementById('out'), L=[], log=s=>L.push(s);
+const shell=document.getElementById('shell');
+shell.addEventListener('load',()=>{
+  setTimeout(()=>{
+   try{
+    const p=shell.contentDocument, sim=p.getElementById('simframe'), sd=sim.contentDocument;
+    const api=sim.contentWindow.CircuitJS1;
+    const cv=[...sd.querySelectorAll('canvas')].sort((a,b)=>b.width-a.width)[0];
+    const rect=cv.getBoundingClientRect();
+    const M=(t,cx,cy)=>cv.dispatchEvent(new MouseEvent(t,{bubbles:true,clientX:rect.left+cx,clientY:rect.top+cy,button:0}));
+    const drag=(x,y,x2,y2)=>{ M('mousedown',x,y); M('mousemove',(x+x2)/2,(y+y2)/2); M('mousemove',x2,y2); M('mouseup',x2,y2); };
+    const toast=()=>{const t=p.querySelector('.dc-toast'); return t?t.textContent:'-';};
+    async function place(name,x,y,x2,y2){
+      const btn=[...p.querySelectorAll('.dc-part-btn')].find(b=>b.textContent.includes(name));
+      if(!btn){ log('  ['+name+'] 面板里没有这个按钮'); return false; }
+      btn.click(); await new Promise(r=>setTimeout(r,200));
+      const t=toast(); if(t.includes('没有找到')){ log('  ['+name+'] 内核菜单里没找到（'+t+'）'); return false; }
+      drag(x,y,x2,y2); await new Promise(r=>setTimeout(r,450));
+      return true;
+    }
+    async function clear(){
+      const top=[...sd.querySelectorAll('.gwt-MenuItem')].find(x=>x.textContent.trim().startsWith('文件')||x.textContent.trim().startsWith('File'));
+      top.dispatchEvent(new MouseEvent('click',{bubbles:true}));
+      await new Promise(r=>setTimeout(r,180));
+      const nbc=[...sd.querySelectorAll('.menuItem')].find(x=>x.textContent.trim().includes('New Blank'));
+      if(nbc) nbc.dispatchEvent(new MouseEvent('click',{bubbles:true}));
+      await new Promise(r=>setTimeout(r,300));
+    }
+    (async()=>{
+      log('=== 1. 清空电路 ===');
+      await clear();
+      log('  元件数='+api.getElements().length);
+      log('=== 2. 通过中文面板摆放元件 ===');
+      const placed=[];
+      for (const [name,x,y,x2,y2] of [
+        ['直流电源',200,180,200,340],
+        ['电阻',200,180,340,180],
+        ['接地',340,340,340,370],
+        ['导线',340,180,340,340],
+        ['电流表',150,400,210,400],
+        ['电压表',400,180,460,180],
+        ['电容',400,340,460,340],
+        ['LED',500,200,540,200],
+        ['灯泡',500,300,540,300],
+        ['开关',500,400,540,400],
+        ['电位器',600,200,600,260],
+        ['标注节点',150,200,110,200],
+      ]) {
+        const ok = await place(name,x,y,x2,y2);
+        if(ok) placed.push(name);
+      }
+      log('  成功摆放: '+placed.join('、')+'（'+placed.length+'/12）');
+      log('  内核元件类型: '+api.getElements().map(e=>e.getType()).join(','));
+      log('=== 3. 面板读数表 ===');
+      const rows=[...p.querySelectorAll('table.dc-table tbody tr')];
+      log('  面板行数='+rows.length);
+      log('  '+rows.slice(0,6).map(r=>r.children[0].textContent+' '+r.children[1].textContent+' / '+r.children[2].textContent).join('  |  '));
+      out.textContent=L.join('\n'); document.title='DONE';
+    })();
+   }catch(e){ log('ERR '+e.message+' '+e.stack); out.textContent=L.join('\n'); document.title='DONE'; }
+  }, 12000);
+});
+</script>
+</body></html>

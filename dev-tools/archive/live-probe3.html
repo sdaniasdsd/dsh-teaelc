@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>DONE</title></head><body>
+<iframe id="shell" src="/dsh-circuit/" style="width:1400px;height:980px;border:0"></iframe>
+<pre id="out">内核元件数=16
+面板行数=16
+内核类型=ResistorElm,SwitchElm,WireElm,CapacitorElm,InductorElm,VoltageElm,ResistorElm,WireElm,ResistorElm,ResistorElm,CapacitorElm,GroundElm,DCVoltageElm,AmmeterElm,LEDElm,SwitchElm
+面板类型=电阻,开关,导线,电容,电感,电压源,电阻,导线,电阻,电阻,电容,接地,直流电源,电流表,发光二极管 LED,开关</pre>
+<script>
+const out=document.getElementById('out'), L=[], log=s=>L.push(s);
+const shell=document.getElementById('shell');
+shell.addEventListener('load',()=>{
+  setTimeout(()=>{
+    const p=shell.contentDocument, sim=p.getElementById('simframe'), sd=sim.contentDocument;
+    const api=sim.contentWindow.CircuitJS1;
+    const cv=[...sd.querySelectorAll('canvas')].sort((a,b)=>b.width-a.width)[0];
+    const rect=cv.getBoundingClientRect();
+    const M=(t,cx,cy)=>cv.dispatchEvent(new MouseEvent(t,{bubbles:true,clientX:rect.left+cx,clientY:rect.top+cy,button:0}));
+    const drag=(x,y,x2,y2)=>{ M('mousedown',x,y); M('mousemove',(x+x2)/2,(y+y2)/2); M('mousemove',x2,y2); M('mouseup',x2,y2); };
+    async function place(name,x,y,x2,y2){
+      const btn=[...p.querySelectorAll('.dc-part-btn')].find(b=>b.textContent.includes(name));
+      btn.click(); await new Promise(r=>setTimeout(r,180));
+      drag(x,y,x2,y2); await new Promise(r=>setTimeout(r,120));
+    }
+    (async()=>{
+      // rapid placement stress: 8 parts with only 120ms gaps
+      for(const [n,x,y,x2,y2] of [['电阻',150,150,250,150],['电阻',150,250,250,250],['电容',150,350,250,350],['接地',150,450,150,480],['直流电源',400,150,400,250],['电流表',300,300,360,300],['LED',400,400,450,400],['开关',500,200,560,200]]){
+        await place(n,x,y,x2,y2);
+      }
+      log('内核元件数='+api.getElements().length);
+      await new Promise(r=>setTimeout(r,300));
+      log('面板行数='+[...p.querySelectorAll('table.dc-table tbody tr')].length);
+      log('内核类型='+api.getElements().map(e=>e.getType()).join(','));
+      log('面板类型='+[...p.querySelectorAll('table.dc-table tbody tr')].map(r=>r.children[0].textContent).join(','));
+      out.textContent=L.join('\n'); document.title='DONE';
+    })();
+  }, 12000);
+});
+</script>
+</body></html>

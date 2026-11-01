@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>DONE</title></head><body><pre id="out">titles=Add Capacitor | Add Capacitor (polarized) | Add Voltage Source (2-terminal) | Add A/C Voltage Source (2-terminal) | Add Switch | Add SPDT Switch | Add Analog Switch (SPST) | Add Analog Switch (SPDT) | Add Op Amp (ideal, - on top) | Add Op Amp (ideal, + on top) | Add Transistor (bipolar, NPN) | Add Transistor (bipolar, PNP) | Add MOSFET (N-Channel) | Add MOSFET (P-Channel) | Add AND Gate | Add NAND Gate | Add OR Gate | Add NOR Gate | Add XOR Gate | Add XNOR Gate
+span=Add Capacitor n0=7
+after drag n=8 types=ResistorElm,SwitchElm,WireElm,CapacitorElm,InductorElm,VoltageElm,ResistorElm,CapacitorElm</pre>
+<script>
+const out=document.getElementById('out'), L=[], log=s=>L.push(s);
+const f=document.createElement('iframe'); f.src='./circuitjs.html?lang=zh';
+f.style='position:absolute;left:0;top:0;width:1200px;height:800px;border:0'; document.body.appendChild(f);
+f.addEventListener('load',()=>{ setTimeout(()=>{
+  const d=f.contentDocument, w=f.contentWindow;
+  const titles=[...d.querySelectorAll('.palette-container span[title]')].map(x=>x.title);
+  log('titles='+titles.slice(0,30).join(' | '));
+  const span=[...d.querySelectorAll('.palette-container span[title]')].find(x=>x.title.toLowerCase().includes('capacitor'));
+  const cvs=[...d.querySelectorAll('canvas')].sort((a,b)=>b.width-a.width)[0];
+  const rect=cvs.getBoundingClientRect();
+  const M=(t,cx,cy,o={})=>cvs.dispatchEvent(new MouseEvent(t,Object.assign({bubbles:true,clientX:rect.left+cx,clientY:rect.top+cy,button:0,offsetX:cx,offsetY:cy},o)));
+  const n0=w.CircuitJS1.getElements().length;
+  log('span='+(span?span.title:'none')+' n0='+n0);
+  if(span){ span.dispatchEvent(new MouseEvent('mousedown',{bubbles:true})); span.dispatchEvent(new MouseEvent('mouseup',{bubbles:true})); }
+  setTimeout(()=>{
+    // drag on canvas: down -> move -> up
+    M('mousedown', 300, 250); M('mousemove', 360, 250); M('mouseup', 360, 250);
+    setTimeout(()=>{
+      log('after drag n='+w.CircuitJS1.getElements().length+' types='+w.CircuitJS1.getElements().map(e=>e.getType()).join(','));
+      out.textContent=L.join('\n'); document.title='DONE';
+    }, 700);
+  }, 400);
+}, 6000); });
+</script><iframe src="./circuitjs.html?lang=zh" style="position: absolute; left: 0px; top: 0px; width: 1200px; height: 800px; border: 0px;"></iframe>
+</body></html>

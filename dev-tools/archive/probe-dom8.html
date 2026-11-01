@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>DONE</title></head><body><pre id="out">canvas: |166x14| ; |166x14| ; |166x14| ; |166x14| ; |166x14| ; |166x14| ; |1034x730|
+drawItem=found
+menuItems=600
+first16=New Blank Circuit | Open File...Ctrl-O | Import From Text.. | Import From Dropbo | Save As...Ctrl-S | Export As Link... | Export As Text... | Export As Image... | Copy Circuit Image | Export As SVG... | Create Subcircuit. | Find DC Operating  | Recover Auto-Save | Print...Ctrl-P | Toggle Full Screen | About...
+resItem=missing
+canvas for click=1034x730
+elements before=7 after=7
+types=ResistorElm,SwitchElm,WireElm,CapacitorElm,InductorElm,VoltageElm,ResistorElm</pre>
+<script>
+const out=document.getElementById('out'), L=[], log=s=>L.push(s);
+const f=document.createElement('iframe'); f.src='./circuitjs.html?lang=zh';
+f.style='position:absolute;left:0;top:0;width:1200px;height:800px;border:0'; document.body.appendChild(f);
+f.addEventListener('load',()=>{ setTimeout(()=>{
+  const d=f.contentDocument, w=f.contentWindow;
+  log('canvas: ' + [...d.querySelectorAll('canvas')].map(c=>c.id+'|'+c.width+'x'+c.height+'|'+c.className).join(' ; '));
+  // open Draw menu
+  const drawItem=[...d.querySelectorAll('.gwt-MenuItem')].find(x=>x.textContent.trim().startsWith('绘制'));
+  log('drawItem=' + (drawItem? 'found':'missing'));
+  if(drawItem){ drawItem.dispatchEvent(new MouseEvent('click',{bubbles:true})); }
+  setTimeout(()=>{
+    const items=[...d.querySelectorAll('.menuItem')];
+    log('menuItems=' + items.length);
+    log('first16=' + items.slice(0,16).map(x=>x.textContent.trim().slice(0,18)).join(' | '));
+    const resItem = items.find(x=>x.textContent.trim().startsWith('Add Resistor') || x.textContent.trim().startsWith('电阻'));
+    log('resItem=' + (resItem? resItem.textContent.trim().slice(0,30) : 'missing'));
+    if(resItem){ resItem.dispatchEvent(new MouseEvent('click',{bubbles:true})); }
+    setTimeout(()=>{
+      // now simulate canvas clicks to place
+      const cvs=[...d.querySelectorAll('canvas')].find(c=>c.width>600) || d.querySelector('canvas');
+      log('canvas for click=' + (cvs?cvs.width+'x'+cvs.height:'none'));
+      const n0 = w.CircuitJS1.getElements().length;
+      const fire=(t,cx,cy)=>cvs.dispatchEvent(new MouseEvent(t,{bubbles:true,clientX:cx,clientY:cy,button:0}));
+      fire('mousedown', 200, 200); fire('mouseup', 200, 200);
+      setTimeout(()=>{
+        const n1=w.CircuitJS1.getElements().length;
+        log('elements before='+n0+' after='+n1);
+        log('types='+w.CircuitJS1.getElements().map(e=>e.getType()).join(','));
+        out.textContent=L.join('\n'); document.title='DONE';
+      }, 800);
+    }, 400);
+  }, 400);
+}, 6000); });
+</script><iframe src="./circuitjs.html?lang=zh" style="position: absolute; left: 0px; top: 0px; width: 1200px; height: 800px; border: 0px;"></iframe>
+</body></html>

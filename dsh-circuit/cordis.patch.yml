@@ -1,0 +1,11 @@
+# dsh-circuit — DSH bundle patch
+#
+# 把插件插入 profile 的配置树。安装方式见 INSTALL.md：
+#   - npm pkg set "dependencies.dsh-circuit=link:D:/circuit电路模拟/dsh-circuit"
+#   - 在 package.json 的 dsh.profile.bundles 末尾追加 "dsh-circuit"
+#
+# 本插件只注册 web 路由（/dsh-circuit/*），不注入 index.html，因此不需要在
+# 启动期参与 DOM 装配；等服务就绪后挂载即可。
+- insert:
+    - id: dsh-circuit
+      name: dsh-circuit
