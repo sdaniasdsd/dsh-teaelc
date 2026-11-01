@@ -17,13 +17,23 @@
 
 ## 安装
 
-见 [INSTALL.md](INSTALL.md)。要点：把 `dsh-circuit` 目录以 `link:` 依赖登记进 profile，在 `dsh.profile.bundles` 末尾追加 `dsh-circuit`，重启 DSH Web，然后访问：
+一行装（推荐）：
+
+```powershell
+dsh plugin --profile web add https://github.com/sdaniasdsd/dsh-teaelc/releases/download/v0.1.0/dsh-circuit-0.1.0.tgz
+```
+
+开发机自用也可以直接软链本目录：`dsh plugin --profile web add link:D:\circuit电路模拟\dsh-circuit`。
+装完**重启 DSH Web**，然后访问：
 
 ```
 http://127.0.0.1:<端口>/dsh-circuit/
 ```
 
 自检：`/dsh-circuit/api/health` 应返回 `{"ok":true,"engine":"circuitjs1",...}`。
+
+⚠️ 本仓库是多目录仓库，`dsh-circuit/` 才是插件包；`dsh plugin add github:sdaniasdsd/dsh-teaelc`
+会把仓库根当包而失败，请用上面的 tgz 直链或本地目录。完整说明见 [INSTALL.md](INSTALL.md)。
 
 ## 教学用法
 

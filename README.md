@@ -31,16 +31,25 @@
 
 ### 安装要点
 
+一行装（GitHub Release 的 tgz 直链，`dsh-plugin` 市场也认这个固定形态）：
+
 ```powershell
-cd C:\Users\<你>\.dsh\profiles\desktop
-npm pkg set "dependencies.dsh-circuit=link:D:/circuit电路模拟/dsh-circuit"
-node -e "const fs=require('fs');const p='package.json';const j=JSON.parse(fs.readFileSync(p,'utf8'));const b=j.dsh.profile.bundles;if(!b.includes('dsh-circuit')){b.push('dsh-circuit');fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n');}"
-npm install --ignore-scripts
+dsh plugin --profile web add https://github.com/sdaniasdsd/dsh-teaelc/releases/download/v0.1.0/dsh-circuit-0.1.0.tgz
+```
+
+开发机自用也可以软链本目录（注意装的是子目录 `dsh-circuit/`，不是仓库根）：
+
+```powershell
+dsh plugin --profile web add link:D:\circuit电路模拟\dsh-circuit
 ```
 
 重启 DSH Web 后访问 `http://127.0.0.1:<端口>/dsh-circuit/`；
 自检接口 `/dsh-circuit/api/health` 应返回 `{"ok":true,"engine":"circuitjs1",...}`。
-完整步骤见 [dsh-circuit/INSTALL.md](dsh-circuit/INSTALL.md)。
+完整步骤（含手动登记、卸载）见 [dsh-circuit/INSTALL.md](dsh-circuit/INSTALL.md)。
+
+| 安装包 | 说明 |
+| --- | --- |
+| [dsh-circuit-0.1.0.tgz](https://github.com/sdaniasdsd/dsh-teaelc/releases/download/v0.1.0/dsh-circuit-0.1.0.tgz) | 542,690 字节 / 357 个文件；SHA256 `A91F6C8472F2D08A63D9A675776C70481DB40C04C8EFA4BC727D2D5165569421`。自包含，装后 `lib/` 路由、CircuitJS1 内核、330 个示例电路、语言包、`cordis.patch.yml` 与 GPL-2.0 全文齐全 |
 
 ## 实现边界（如实说明）
 
