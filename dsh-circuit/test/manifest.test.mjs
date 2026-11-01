@@ -12,7 +12,7 @@
 import assert from 'node:assert/strict'
 import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { describe, it } from 'node:test'
 
 const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -71,5 +71,39 @@ describe('dsh-circuit 客户端清单', () => {
       'apply 必须检查 slots.register 是否可用，缺失时 return（抛错会导致整页白屏）',
     )
     assert.match(clientSource, /if\s*\(\s*!React\s*\)\s*return/, 'React 缺失时必须安全返回')
+  })
+
+  // ---- scoped 包名一致性 ---------------------------------------------------
+  // 包名一旦带 scope（如 @commonworks/dsh-circuit），patch 里的 name: 与
+  // lib/index.js 的 export const name 都必须写**全限定名**。宿主按这两个名字
+  // 解析并 import 本包，写成裸名会解析失败 —— 症状同样是「装了不生效」。
+
+  it('cordis.patch.yml 的 name 与 package.json 全限定名一致', () => {
+    const patchPath = join(PACKAGE_ROOT, 'cordis.patch.yml')
+    assert.ok(existsSync(patchPath), 'cordis.patch.yml 必须存在')
+    const patch = readFileSync(patchPath, 'utf8')
+    const names = [...patch.matchAll(/^\s*(?:-\s*)?name:\s*['"]?([^'"\n]+?)['"]?\s*$/gmu)].map((m) => m[1].trim())
+    assert.ok(names.length > 0, 'cordis.patch.yml 里应有 name: 行')
+    assert.deepEqual(
+      names,
+      [manifest.name],
+      `patch 的 name 必须等于 package.json 的 name（${manifest.name}）；` +
+        `scope 包写成裸名（如 dsh-circuit）会导致宿主解析失败。实际读到: ${JSON.stringify(names)}`,
+    )
+  })
+
+  it('lib/index.js 导出的 name 与全限定包名一致', async () => {
+    // 真正 import 模块取导出值，而不是正则匹配源码字面量：
+    // 实现可能用常量间接导出（如 export const name = PLUGIN_NAME），
+    // 正则会对正确实现误报。这里断言的是**运行时真实值**。
+    // Windows 绝对路径必须转成 file:// URL，否则 ESM loader 拒绝 'd:' 协议。
+    const mod = await import(pathToFileURL(join(PACKAGE_ROOT, 'lib/index.js')).href)
+    assert.equal(typeof mod.name, 'string', 'lib/index.js 必须导出 name')
+    assert.equal(mod.name, manifest.name, `导出 name 必须等于 package.json 的 name（${manifest.name}）`)
+  })
+
+  it('package.json 的 name 是合法的 scoped 名', () => {
+    assert.match(manifest.name, /^@[a-z0-9]([a-z0-9-._]*[a-z0-9])?\/[a-z0-9-._]+$/,
+      'name 必须是 scope/name 形式，且小写')
   })
 })

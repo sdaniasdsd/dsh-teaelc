@@ -1,10 +1,26 @@
-# dsh-circuit · 电路小实验
+# @commonworks/dsh-circuit · 电路小实验
 
-面向**初中 / 高中物理**的电路模拟器，作为 DeepSeek Harness 插件运行。左边是可拖放摆放元件的电路画布，右边是中文学习面板：实时读数、多通道波形、挑战任务与自动校验。
+面向**初中 / 高中物理**的电路模拟器，作为 DeepSeek Harness（DSH）插件运行。左边是可拖放摆放元件的电路画布，右边是中文学习面板：实时读数、多通道波形、挑战任务与自动校验。
 
 仿真内核是开源项目 [CircuitJS1](https://github.com/sharpie7/circuitjs1)（Paul Falstad / Iain Sharp，**GPL-2.0**）。本插件不重写求解器，只做中文教学外壳 —— 因此面板上的每个数字都来自内核自己算出的结果，与画布上看到的电压颜色、电流小点完全一致。
 
-![界面](docs/screenshot.png)
+![界面](https://raw.githubusercontent.com/sdaniasdsd/dsh-teaelc/main/dsh-circuit/docs/screenshot.png)
+
+> 截图用绝对 URL：npm 包只分发 `lib/ assets/ client/` 等运行必需文件，不含 `docs/`，
+> 用相对路径的话 npm 页面上会是坏图。
+
+## 安装（一行装）
+
+```powershell
+dsh plugin --profile web add @commonworks/dsh-circuit
+```
+
+装完**重启 `dsh web`**，再按 F5 刷新浏览器，访问 `http://127.0.0.1:<端口>/dsh-circuit/`。
+自检：`/dsh-circuit/api/health` 应返回 `{"ok":true,"plugin":"@commonworks/dsh-circuit","engine":"circuitjs1",...}`。
+其他装法（GitHub Release tgz、本地目录、手动登记）见 [INSTALL.md](INSTALL.md)。
+
+> **0.1.0 的客户端是坏的**（`dsh.client.inject` 声明了宿主机不存在的包，装完侧栏无入口、
+> 页面打不开）。**请用 0.1.1 及以上**；已装 0.1.0 的先 `dsh plugin --profile web remove @commonworks/dsh-circuit` 再装。
 
 ## 它能做什么
 
@@ -14,26 +30,6 @@
 | 测量电流 / 电压 | 右侧"测量台"逐行列出每个元件的电压（V）与电流（A），每 0.5 秒刷新，单位为 mA / µA / nA 自动切换 |
 | 看波形 | 给任意元件添加"电压"或"电流"通道（最多 6 条），按**仿真时间**采样并绘制最近 3 秒曲线，自动量程 |
 | 做挑战 | 内置 3 个任务（欧姆定律 / 串联分压 / RC 充电），按**真实读数**判定通过，逐条给出"哪里不满足" |
-
-## 安装
-
-一行装（推荐）：
-
-```powershell
-dsh plugin --profile web add https://github.com/sdaniasdsd/dsh-teaelc/releases/download/v0.1.0/dsh-circuit-0.1.0.tgz
-```
-
-开发机自用也可以直接软链本目录：`dsh plugin --profile web add link:D:\circuit电路模拟\dsh-circuit`。
-装完**重启 DSH Web**，然后访问：
-
-```
-http://127.0.0.1:<端口>/dsh-circuit/
-```
-
-自检：`/dsh-circuit/api/health` 应返回 `{"ok":true,"engine":"circuitjs1",...}`。
-
-⚠️ 本仓库是多目录仓库，`dsh-circuit/` 才是插件包；`dsh plugin add github:sdaniasdsd/dsh-teaelc`
-会把仓库根当包而失败，请用上面的 tgz 直链或本地目录。完整说明见 [INSTALL.md](INSTALL.md)。
 
 ## 教学用法
 

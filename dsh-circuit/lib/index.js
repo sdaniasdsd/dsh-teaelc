@@ -22,6 +22,8 @@ const PACKAGE_ROOT = dirname(fileURLToPath(import.meta.url))
 const APP_ROOT = resolve(PACKAGE_ROOT, '..', 'assets', 'app')
 const ROUTE_PREFIX = '/dsh-circuit'
 const APP_BASE = `${ROUTE_PREFIX}/app`
+/** 全限定包名：插件自报标识与健康检查共用同一常量，避免两处漂移。 */
+const PLUGIN_NAME = '@commonworks/dsh-circuit'
 
 /** 允许服务的资源扩展名与 MIME。未列出的扩展名一律 404，避免暴露仓库其它文件。 */
 const MIME_BY_EXT = new Map([
@@ -192,7 +194,7 @@ export function mountRoutes(ctx) {
       if (denied) return sendText(res, denied, 'forbidden')
       sendJson(res, 200, {
         ok: true,
-        plugin: 'dsh-circuit',
+        plugin: PLUGIN_NAME,
         engine: 'circuitjs1',
         engineLicense: 'GPL-2.0',
         appBase: APP_BASE,
@@ -259,7 +261,7 @@ export async function streamFile(req, res, abs, displayPath) {
   }
 }
 
-export const name = 'dsh-circuit'
+export const name = PLUGIN_NAME
 
 /**
  * 本插件没有需要在宿主启动阶段参与 index.html 注入的逻辑：页面完全由自身路由提供，
