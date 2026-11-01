@@ -1,5 +1,5 @@
 {
-  "name": "dsh-circuit",
+  "name": "@commonworks/dsh-circuit",
   "version": "0.1.0",
   "description": "面向初中/高中的电路模拟器 DSH 插件：内嵌开源 CircuitJS1 仿真内核，提供中文学习面板、元件电压电流读数、多通道波形记录与挑战校验。",
   "license": "GPL-2.0",
