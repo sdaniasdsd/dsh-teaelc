@@ -3,10 +3,16 @@
 本插件是标准 DSH bundle 插件：靠 profile 的 `dsh.profile.bundles` 列表 + `cordis.patch.yml` 挂载，
 与 dsh-whale-widget 等插件同一机制。下面三种装法任选一种。
 
+> **0.1.0 的客户端是坏的，请用 0.1.1 及以上。** 0.1.0 的 `dsh.client.inject` 里写了两个宿主机
+> 上并不存在的包（`@deepseek-ai/dsh-client-ui-slots` / `@deepseek-ai/dsh-client-locale`），
+> 导致浏览器端模块永远等不到依赖、`apply` 永不执行：**装完侧栏没有入口、页面也打不开**（
+> 但 Host 路由 `/dsh-circuit/` 其实是通的）。0.1.1 已改为不声明 inject（`slots` 服务由客户端内核
+> 自带），并加了 `test/manifest.test.mjs` 作为回归哨兵。已装 0.1.0 的，先 remove 再装 0.1.1。
+
 ## 方式 A：从 GitHub Release 装（推荐，给别人用）
 
 ```powershell
-dsh plugin --profile web add https://github.com/sdaniasdsd/dsh-teaelc/releases/download/v0.1.0/dsh-circuit-0.1.0.tgz
+dsh plugin --profile web add https://github.com/sdaniasdsd/dsh-teaelc/releases/download/v0.1.1/dsh-circuit-0.1.1.tgz
 ```
 
 - 该直链是 DSH 插件市场（`dsh-plugin`）认可的固定形态 `github.com/<owner>/<repo>/releases/download/<tag>/<asset>.tgz`，
@@ -32,7 +38,7 @@ dsh plugin --profile web add file:D:\circuit电路模拟\dsh-circuit
 
 ```powershell
 cd C:\Users\<你>\.dsh\profiles\<profile>
-$tgz = "D:\下载\dsh-circuit-0.1.0.tgz"
+$tgz = "D:\下载\dsh-circuit-0.1.1.tgz"
 
 npm install --ignore-scripts --no-audit --no-fund $tgz
 node -e "const fs=require('fs');const p='package.json';const j=JSON.parse(fs.readFileSync(p,'utf8'));const b=j.dsh.profile.bundles;if(!b.includes('dsh-circuit')){b.push('dsh-circuit');fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n');}"

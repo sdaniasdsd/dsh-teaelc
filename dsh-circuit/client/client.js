@@ -1,15 +1,22 @@
 /* dsh-circuit — 浏览器端 bundle（左侧边栏入口 + 主区页面）。
  *
- * 加载方式：dsh-client-modules 把插件的 ./client 产物挂到 /plugins/dsh-circuit/client.js，
- * 由 shell 的 lazy-CJS 模块表执行（window.__ModuleLoader__.load）。
+ * 装载协议：dsh-client-modules 按 package.json 的 `dsh.client` 与 `exports["./client"]`
+ * 找到本文件，映射到 /plugins/dsh-circuit/client.js，由 window.__ModuleLoader__.load 执行。
  *
- * 挂载点（取自宿主 dsh-client-ui-sidebar / ui-layout 的真实 slot 定义）：
- *   1) sidebar.panellist —— 左侧边栏的图标条目（list slot），这就是"左侧栏留个位置"
- *   2) main              —— 点左侧图标后打开的主内容页（键控 slot）
+ * 关键约束（曾经踩过坑，别再改回去）：
+ *  1) `dsh.client.inject` 里写的**必须是真实存在的包名**。它表示"我要和这些插件的
+ *     客户端模块一起装载、并用它们提供的服务"。写一个宿主机上不存在的包名，声明仍能
+ *     通过组合期校验，但该行会永远等不到那个模块 → apply 永不执行 → 侧栏没有条目、
+ *     页面也打不开（表现就是"装了看不见"）。
+ *     本机（DeepSeek Harness 桌面端 0.2.1-rc.3）实测**没有** dsh-client-ui-slots；
+ *     它提供的 `slots` 服务是客户端内核本身就有的，不需要也不应该放进 inject。
+ *  2) 因此 inject 只保留真正被引用的包，并且 apply 里对每个服务都做**运行时存在性检查**：
+ *     服务没到就安全降级，绝不让 factory 抛出（抛了就是整页白屏）。
+ *  3) 槽位注册走宿主真实 API：ctx.slots.register({ name, id/key, order, label }, 组件)，
+ *     与 dsh-client-ui-sidebar / layout 的用法一致；label 可传字符串或返回字符串的函数。
  *
- * 页面内容用 iframe 指向 /dsh-circuit/?embed=1，复用同一个模拟器：
- * 模拟器是 1MB 的 GWT 内核 + 一整套自绘浮层面板，重写成 React 没有收益，
- * 而 iframe 与宿主 React 渲染隔离，切走页面时销毁，不占后台 CPU。
+ * 副产物：宿主路由 /dsh-circuit/* 由 Host 半边（lib/index.js）注册，与客户端是否加载无关。
+ * 所以即使客户端没挂上，/dsh-circuit/ 仍然可以直接在浏览器里打开——可以用它来自检。
  */
 
 window.__ModuleLoader__.load({
@@ -18,19 +25,17 @@ window.__ModuleLoader__.load({
     var module = { exports: {} }
     var exports = module.exports
 
-    // ---- 平台种子：逐个 try，任一缺失都不能让 factory 抛出（否则 DSH 报插件加载失败）
-    const seedProbe = { lastError: null }
+    // ---- 平台种子：逐个 try，任一缺失都不能让 factory 抛出
     const requireSeed = (name) => {
       try {
         return require(name)
       } catch (err) {
-        seedProbe.lastError = err
         return null
       }
     }
 
-    requireSeed('react/jsx-runtime')
     const React = requireSeed('react')
+    requireSeed('react/jsx-runtime')
 
     const PANEL_ID = 'dsh-circuit'
     const EMBED_SRC = '/dsh-circuit/?embed=1'
@@ -39,7 +44,8 @@ window.__ModuleLoader__.load({
     /** 侧栏图标：内联 SVG，不依赖宿主 primitives（版本间图标集可能不同）。 */
     function CircuitIcon(props) {
       const size = (props && props.size) || 18
-      return React.createElement(
+      const h = React.createElement
+      return h(
         'svg',
         {
           width: size,
@@ -49,24 +55,9 @@ window.__ModuleLoader__.load({
           xmlns: 'http://www.w3.org/2000/svg',
           'aria-hidden': 'true',
         },
-        React.createElement('path', {
-          d: 'M3 12h3.5M17.5 12H21',
-          stroke: 'currentColor',
-          strokeWidth: 1.8,
-          strokeLinecap: 'round',
-        }),
-        React.createElement('path', {
-          d: 'M6.5 7.5v9M17.5 7.5v9',
-          stroke: 'currentColor',
-          strokeWidth: 1.8,
-          strokeLinecap: 'round',
-        }),
-        React.createElement('path', {
-          d: 'M10 12h4',
-          stroke: 'currentColor',
-          strokeWidth: 1.8,
-          strokeLinecap: 'round',
-        }),
+        h('path', { d: 'M3 12h3.5M17.5 12H21', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round' }),
+        h('path', { d: 'M6.5 7.5v9M17.5 7.5v9', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round' }),
+        h('path', { d: 'M10 12h4', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round' }),
       )
     }
 
@@ -170,17 +161,18 @@ window.__ModuleLoader__.load({
 
     // ---- 注册 --------------------------------------------------------------
     function apply(ctx) {
+      // React 拿不到说明平台种子异常，但也不能抛：直接放弃 UI，Host 路由仍然可用。
       if (!React) return
+
+      const slots = ctx && ctx.slots
+      if (!slots || typeof slots.register !== 'function') return
 
       const disposers = []
       const push = (d) => {
         if (typeof d === 'function') disposers.push(d)
       }
 
-      const slots = ctx.slots
-      if (!slots || typeof slots.inject !== 'function') return
-
-      // 1) 左侧边栏图标条目
+      // 1) 左侧边栏图标条目（list slot，条目在左栏占一行）
       push(
         slots.inject('sidebar.panellist', () =>
           slots.register(
@@ -188,49 +180,47 @@ window.__ModuleLoader__.load({
               name: 'sidebar.panellist',
               id: PANEL_ID,
               order: 30,
-              label: () => '电路小实验',
+              label: '电路小实验',
             },
             CircuitIcon,
           ),
         ),
       )
 
-      // 2) 主区页面：点左侧图标后显示
+      // 2) 主区页面：点左侧条目后按 key 选中这块面板
       push(
         slots.inject('main', () =>
           slots.register(
             {
               name: 'main',
               key: PANEL_ID,
-              label: () => '电路小实验',
+              label: '电路小实验',
             },
             CircuitPage,
           ),
         ),
       )
 
-      if (typeof ctx.effect === 'function') {
-        ctx.effect(() => () => {
-          for (const d of disposers) {
-            try {
-              d()
-            } catch {}
-          }
-        })
-      }
-
-      return () => {
+      const disposeAll = () => {
         for (const d of disposers) {
           try {
             d()
           } catch {}
         }
       }
+
+      if (typeof ctx.effect === 'function') {
+        ctx.effect(() => disposeAll, 'dsh-circuit: slots')
+      }
+
+      return disposeAll
     }
 
     module.exports = {
       name: 'dsh-circuit-client',
       apply,
+      // 只注入客户端内核本来就有、且本文件真正用到的服务。
+      // 不要加任何宿主机上不存在的包（血的教训，见文件头注释）。
       inject: ['slots'],
     }
     return module.exports
