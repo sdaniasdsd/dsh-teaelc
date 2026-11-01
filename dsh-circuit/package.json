@@ -5,10 +5,20 @@
   "license": "GPL-2.0",
   "type": "module",
   "main": "lib/index.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sdaniasdsd/dsh-teaelc.git"
+  },
+  "homepage": "https://github.com/sdaniasdsd/dsh-teaelc#readme",
+  "bugs": {
+    "url": "https://github.com/sdaniasdsd/dsh-teaelc/issues"
+  },
   "files": [
     "lib",
     "assets",
     "cordis.patch.yml",
+    "COPYING.txt",
+    "INSTALL.md",
     "README.md",
     "NOTICE",
     "client"

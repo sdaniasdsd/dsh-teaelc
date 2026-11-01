@@ -4,6 +4,13 @@ node_modules/
 .DS_Store
 Thumbs.db
 
+# npm 缓存（沙箱内改用工作区缓存，避免写 %LOCALAPPDATA%）
+.npm-cache/
+release/
+
+# 插件安装包：源码在 dsh-circuit/，tgz 由 npm pack 生成后随 Release 附件分发
+*.tgz
+
 # 可再生成的渲染产物：宣传片逐帧序列与质检抽帧（由 promo/render.js 与 promo/qc 脚本重新生成）
 promo/out/
 promo/smoke/

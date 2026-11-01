@@ -1,43 +1,58 @@
 # dsh-circuit — 安装到 DSH
 
-本插件通过 profile 的 bundle 列表 + `cordis.patch.yml` 挂载，与 dsh-whale-widget 等插件同一机制。
+本插件是标准 DSH bundle 插件：靠 profile 的 `dsh.profile.bundles` 列表 + `cordis.patch.yml` 挂载，
+与 dsh-whale-widget 等插件同一机制。下面三种装法任选一种。
 
-## 安装（本机 desktop profile）
-
-1. 把整个 `dsh-circuit` 目录放进 profile 可见的位置，并用 `link:` 依赖登记：
+## 方式 A：从 GitHub Release 装（推荐，给别人用）
 
 ```powershell
-# D:\circuit电路模拟\dsh-circuit 已在本机
-cd C:\Users\AA\.dsh\profiles\desktop
-# 1) 登记本地包（不改动 package.json 其它行，只加一条 link 依赖）
-npm pkg set "dependencies.dsh-circuit=link:D:/circuit电路模拟/dsh-circuit"
-
-# 2) 让它出现在 bundle 栈里（与 dsh-whale-widget 同样的位置：末尾追加即可）
-node -e "const fs=require('fs');const p='package.json';const j=JSON.parse(fs.readFileSync(p,'utf8'));const b=j.dsh.profile.bundles;if(!b.includes('dsh-circuit')){b.push('dsh-circuit');fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n');}"
-
-# 3) 建链接
-npm install --ignore-scripts
+dsh plugin --profile web add https://github.com/sdaniasdsd/dsh-teaelc/releases/download/v0.1.0/dsh-circuit-0.1.0.tgz
 ```
 
-2. 重启 DSH Web（本插件没有需要启动期参与的 index 注入，只需一次重启即可挂上路由）。
+- 该直链是 DSH 插件市场（`dsh-plugin`）认可的固定形态 `github.com/<owner>/<repo>/releases/download/<tag>/<asset>.tgz`，
+  直接把整行粘进市场的自定义安装框也能识别。
+- 装完**重启 `dsh web`**，再按 F5 刷新浏览器。
 
-3. 打开 `http://127.0.0.1:<当前端口>/dsh-circuit/` 即进入模拟器。
+⚠️ **不要用 `dsh plugin --profile web add github:sdaniasdsd/dsh-teaelc`**：本仓库是多目录仓库，
+`dsh-circuit/` 才是插件包，`github:` 直装会把**仓库根**当包，那里没有 package.json，必然失败。
+
+## 方式 B：本地目录（开发机自用）
+
+```powershell
+# link: = 软链安装，源目录改动立即生效（但之后不能移动该目录）
+dsh plugin --profile web add link:D:\circuit电路模拟\dsh-circuit
+
+# 或 file: = 拷贝安装（源目录再改不会同步，需重新 add）
+dsh plugin --profile web add file:D:\circuit电路模拟\dsh-circuit
+```
+
+## 方式 C：手动登记（没有 dsh CLI，或在官方桌面端里）
+
+本插件没有需要启动期参与的 index 注入，只需登记依赖 + 追加 bundle 名：
+
+```powershell
+cd C:\Users\<你>\.dsh\profiles\<profile>
+$tgz = "D:\下载\dsh-circuit-0.1.0.tgz"
+
+npm install --ignore-scripts --no-audit --no-fund $tgz
+node -e "const fs=require('fs');const p='package.json';const j=JSON.parse(fs.readFileSync(p,'utf8'));const b=j.dsh.profile.bundles;if(!b.includes('dsh-circuit')){b.push('dsh-circuit');fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n');}"
+```
+
+重启 DSH Web 即可。
 
 ## 卸载
 
 ```powershell
-cd C:\Users\AA\.dsh\profiles\desktop
-node -e "const fs=require('fs');const p='package.json';const j=JSON.parse(fs.readFileSync(p,'utf8'));j.dsh.profile.bundles=j.dsh.profile.bundles.filter(x=>x!=='dsh-circuit');delete j.dependencies['dsh-circuit'];fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n');"
-npm install --ignore-scripts
+dsh plugin --profile web remove dsh-circuit
 ```
+
+手动装过的按反向操作：删除 `dependencies["dsh-circuit"]`，并从 `dsh.profile.bundles` 里移除该名字，再 `npm install --ignore-scripts`。
 
 ## 自检
 
 ```powershell
-# 路由与内核是否就绪（服务在跑时）
-curl.exe -s http://127.0.0.1:63797/dsh-circuit/api/health
+curl.exe -s http://127.0.0.1:<端口>/dsh-circuit/api/health
 ```
 
 返回 `{"ok":true,"engine":"circuitjs1","engineLicense":"GPL-2.0",...}` 即路由挂载成功。
-
-端口以当前会话给出的 DSH Web GUI URL 为准；本会话为 `http://127.0.0.1:63797`。
+端口以当前 DSH Web GUI URL 为准。装完打不开时，先确认 `dsh.profile.bundles` 末尾确实有 `dsh-circuit`，再看是否少了重启。
