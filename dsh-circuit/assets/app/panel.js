@@ -112,8 +112,12 @@ const PARTS = [
 const state = {
   api: null,
   elements: [],
-  elementAt: 0,
   channels: [],           // { key, type, index, label, color, signal: 'i'|'v' }
+  // 电路代次：每次整体换电路（加载预设/清空）就 +1。
+  // 通道记下自己属于哪一代；代次不符就报"断线"，绝不去新电路里按 (type,index)
+  // 重新找元件 —— 那会静默读到另一个元件的数值（实测：加载新预设后 CH2 显示
+  // 的是新电路里同序号电阻的电流，数字看着正常但是错的）。
+  circuitGen: 0,
   samples: [],            // { t, values: number[] }
   lastSampleAt: 0,
   running: true,
@@ -140,7 +144,14 @@ const state = {
   triggerStartT: 0,
   triggerLastV: null,
   triggerRef: null,
+  // 武装时刻（仿真时间）：单次触发的"到时兜底"以它为起点，抓到的永远是武装之后的数据
+  triggerArmedAt: 0,
   zoomBox: null,
+  // 被用户 × 掉的窗口 id 集合。存在 localStorage 里跟着窗口几何一起走，
+  // 但「面板」菜单永远能把它们重新打开 —— 这样"关窗"不再是单向门。
+  closedWins: {},
+  // 帮助窗口是否已经自动打开过一次（只自动弹一次，之后由用户从「面板」菜单开）
+  helpSeen: false,
 }
 
 const ui = {}
@@ -270,7 +281,6 @@ function refreshElements() {
     list.push({ index: i, type, vd, current, info, label: typeLabel(type) })
   }
   state.elements = list
-  state.elementAt = Date.now()
   return list
 }
 
@@ -474,6 +484,7 @@ function addChannel(type, index, signal) {
     type,
     index,
     signal,
+    gen: state.circuitGen,
     label: `${target.label} ${signal === 'i' ? '电流' : '电压'}`,
     color: CHANNEL_COLORS[state.channels.length % CHANNEL_COLORS.length],
     enabled: true,
@@ -509,6 +520,65 @@ function removeChannel(key) {
 }
 
 /**
+ * 单次触发要攒够的采样点数（约一屏能画满的量）。
+ *
+ * 按**点数**而不是按时间：采样密度由电路决定（5µs 步长的 RC 电路跑 10 秒真实时间
+ * 才推进几十毫秒仿真时间），按时间要客户干等一分钟以上。点数判据对快慢电路都一致。
+ */
+const TRIGGER_CAPTURE_SAMPLES = 240
+/** 武装后最多等这么多点还抓不到边沿，就改用"从武装点起算"（单调信号如 RC 充电走这条）。 */
+const TRIGGER_ARM_SAMPLES = 80
+
+/**
+ * 选择触发源通道：第一个当前有有效读数、且处于启用状态的通道。
+ * @param values 本帧各通道的读数
+ * @returns 通道下标；没有任何可用通道时返回 -1
+ */
+function pickTriggerChannel(values) {
+  for (let ci = 0; ci < state.channels.length; ci += 1) {
+    if (!state.channels[ci].enabled) continue
+    if (Number.isFinite(values[ci])) return ci
+  }
+  return -1
+}
+
+/** state.samples 里 t >= since 的点数。 */
+function countSamplesSince(since) {
+  if (!since) return state.samples.length
+  let n = 0
+  for (let i = state.samples.length - 1; i >= 0; i -= 1) {
+    if (state.samples[i].t < since) break
+    n += 1
+  }
+  return n
+}
+
+/**
+ * 从已有样本里算出第 ci 个通道的触发电平（(最大值 + 最小值) / 2）。
+ *
+ * 这就是示波器 AUTO 触发做的事：把电平放在信号摆幅的中点，任何周期波形都会
+ * 稳定地穿过它。样本还不足以定出摆幅时返回 null（此时继续等，不假装触发）。
+ *
+ * @param ci 通道下标
+ * @returns 参考电平，或 null
+ */
+function triggerLevelFromSamples(ci) {
+  if (state.samples.length < 4) return null
+  let min = Number.POSITIVE_INFINITY
+  let max = Number.NEGATIVE_INFINITY
+  for (const s of state.samples) {
+    const v = s.values[ci]
+    if (!Number.isFinite(v)) continue
+    if (v < min) min = v
+    if (v > max) max = v
+  }
+  if (!Number.isFinite(min) || !Number.isFinite(max)) return null
+  // 摆幅太小说明是直流（没有可触发的边沿），返回 null 继续等
+  if (max - min < Math.max(Math.abs(max), 1e-12) * 1e-3) return null
+  return (max + min) / 2
+}
+
+/**
  * 采样一次。值为 NaN 时保留 NaN，绘图时跳过，避免把无效点画成 0。
  *
  * 必须按**仿真时间**判断该不该记点，而不是按墙上时间节流：电路在 5µs 时间步下
@@ -530,6 +600,10 @@ function sampleTick() {
   for (const channel of state.channels) {
     // 电流通道：直接读该元件的电流。
     if (channel.measure === 'current') {
+      if (channel.gen !== undefined && channel.gen !== state.circuitGen) {
+        values.push(Number.NaN)
+        continue
+      }
       const el = state.elements.find((e) => e.index === channel.currentIndex && e.type === channel.currentType)
       values.push(el ? el.current : Number.NaN)
       continue
@@ -537,12 +611,16 @@ function sampleTick() {
     // 电位差通道：V = V(正端) − V(负端)，与真实示波器的正负端接线语义一致。
     // 负端默认接地，因此默认就是"单端对地测量"；选两个探头就是差分测量。
     if (channel.measure === 'voltage' || channel.type === 'probe') {
-      const pos = probeValue(channel.positive)
-      const neg = probeValue(channel.negative)
+      const pos = probeValue(channel.positive, channel.gen)
+      const neg = probeValue(channel.negative, channel.gen)
       values.push(pos === null || neg === null ? Number.NaN : pos - neg)
       continue
     }
     // 兼容旧式"绑定元件"通道：元件被删除后记 NaN，波形断开，但通道本身保留。
+    if (channel.gen !== undefined && channel.gen !== state.circuitGen) {
+      values.push(Number.NaN)
+      continue
+    }
     const el = state.elements.find((e) => e.index === channel.index && e.type === channel.type)
     values.push(el ? (channel.signal === 'i' ? el.current : el.vd) : Number.NaN)
   }
@@ -550,46 +628,94 @@ function sampleTick() {
   state.lastSampleAt = Date.now()
   state.samples.push({ t, values })
 
-  // 单次触发：等第一个通道出现上升穿越，然后记满一屏就暂停仿真。
-  // 这是真实示波器 "Single" 模式的语义：抓一个边沿，冻结画面。
-  if (state.triggerMode === 'single' && state.triggerArmed && values.length > 0) {
-    const v0 = values[0]
-    if (Number.isFinite(v0)) {
-      if (state.triggerLastV === null || state.triggerLastV === undefined) {
-        state.triggerLastV = v0
-      } else {
-        const meanish = state.triggerRef === null ? v0 : state.triggerRef
-        if (v0 > meanish && state.triggerLastV <= meanish) {
-          // 检测到上升沿：开始正式记录
+  // 单次触发（Single）：抓一段波形后冻结仿真，这是真实示波器 Single 的语义。
+  //
+  // 触发条件有两种，必须都支持 —— 原实现只判"上升穿越参考电平"，对教学里最常见的
+  // 信号根本不成立：
+  //   a) **边沿触发**：信号双向穿越参考电平（周期波形：正弦、方波）。
+  //   b) **到时触发**：从武装起攒够一屏时间（单调信号：电容充电曲线一路往上，
+  //      物理上只有一个上升沿，而且发生在武装之前，永远等不到第二次穿越）。
+  //      实测「电容器充放电」预设正是这种情况：电压从 4.53 V 一路升到 4.88 V 不回穿，
+  //      原实现于是永远不冻结。
+  //
+  // 参考电平用已积累样本的 (max+min)/2（示波器 AUTO 电平的做法），不拿当前样点当参考
+  // ——原来 `meanish = triggerRef === null ? v0 : triggerRef` 里 triggerRef 从未赋值，
+  // 条件恒假，这是"单次触发没反应"的直接原因。
+  // 触发源：第一个**有有效读数**的启用通道。
+  //
+  // 不能固定用 CH1：客户换电路后旧通道可能已经断线（读数是 NaN），此时 CH1 永远
+  // 不产生边沿，而 CH2 明明是正常的波形 —— 单次触发就再也不工作了。实测正是如此。
+  const triggerIndex = pickTriggerChannel(values)
+  if (state.triggerMode === 'single' && triggerIndex >= 0) {
+    const v0 = values[triggerIndex]
+
+    if (state.triggerArmed && Number.isFinite(v0)) {
+      if (state.triggerRef === null || state.triggerRef === undefined) {
+        const level = triggerLevelFromSamples(triggerIndex)
+        if (level !== null) state.triggerRef = level
+      }
+      const ref = state.triggerRef
+      if (ref !== null && ref !== undefined && state.triggerLastV !== null) {
+        // 双向穿越：上升沿和下降沿都算（真实示波器可选边沿极性，教学场景取任一沿即可）
+        const crossed = (state.triggerLastV < ref && v0 >= ref) || (state.triggerLastV > ref && v0 <= ref)
+        if (crossed) {
           state.triggerArmed = false
           state.samples = [{ t, values }]
           state.triggerStartT = t
           state.triggerCapturing = true
         }
-        state.triggerLastV = v0
+      }
+      state.triggerLastV = v0
+
+      // (b) 兜底：武装后攒够 TRIGGER_ARM_SAMPLES 个点还没等到边沿，就从武装点起算。
+      //
+      // 为什么不能用"仿真时间够一屏"当兜底：一屏时长是 effectiveTimebase() 算出来的，
+      // 而它本身又由"已攒了多少数据"决定 —— 目标会跟着数据一起长大，永远追不上
+      // （实测：武装后仿真时间推进 0.074s，需求窗同时长到 0.080s，差一点点，永不触发）。
+      // 改成按**采样点个数**判定，个数是单调递增且与窗口大小无关的，一定收敛。
+      if (state.triggerArmed && countSamplesSince(state.triggerArmedAt) >= TRIGGER_ARM_SAMPLES) {
+        state.triggerArmed = false
+        const recent = state.samples.filter((sm) => sm.t >= state.triggerArmedAt)
+        state.samples = recent.length >= 2 ? recent : state.samples.slice(-2)
+        state.triggerStartT = state.samples.length ? state.samples[0].t : t
+        state.triggerCapturing = true
+      }
+    }
+
+    if (state.triggerCapturing) {
+      // 完成条件：攒够一屏的点数，或仿真时间已跑满一屏（高速信号用后者）。
+      // 两个条件都是"只增不减"的量，保证一定会结束。
+      const captured = countSamplesSince(state.triggerStartT)
+      if (captured >= TRIGGER_CAPTURE_SAMPLES || t - (state.triggerStartT || t) >= screenSpan()) {
+        state.triggerCapturing = false
+        state.triggerArmed = false
+        setSimRunning(false)
+        renderSimState()
+        toast('单次触发完成：已冻结一屏波形（改回"自动滚动"继续观察）')
       }
     }
   }
-  if (state.triggerCapturing) {
-    const span = t - (state.triggerStartT || t)
-    if (span >= (state.timebase || 0.1) * 10) {
-      state.triggerCapturing = false
-      setSimRunning(false)
-      renderSimState()
-      toast('单次触发完成：已冻结一屏波形')
-    }
-  }
 
+  // 裁剪历史样本。注意要保住"触发武装点"和"触发起点"之后的数据 —— 否则单次触发
+  // 攒点期间旧点被裁掉，countSamplesSince 的起点就失效了。
   const cutoff = t - (SAMPLE_WINDOW_S * 2.2)
-  while (state.samples.length > 2 && state.samples[0].t < cutoff) state.samples.shift()
+  const keepFrom = Math.max(
+    cutoff,
+    state.triggerArmed && state.triggerArmedAt ? Math.min(state.triggerArmedAt, cutoff) : cutoff,
+    state.triggerCapturing && state.triggerStartT ? Math.min(state.triggerStartT, cutoff) : cutoff,
+  )
+  while (state.samples.length > 2 && state.samples[0].t < keepFrom) state.samples.shift()
 }
 
 /**
  * 读取一个测量点的数值（探头正端/负端用）。
  * 返回 null 表示"该点当前不可用"（元件被删除或尚未插入电路）。
  */
-function probeValue(id) {
+function probeValue(id, gen) {
   if (!id || id === '__gnd__') return 0
+  // 代次不符 = 这个测点属于上一份电路，当前电路里同序号元件是**另一个**元件，
+  // 读它会静默给出错误的数。直接报"不可用"（NaN 断开），让客户自己重新接。
+  if (gen !== undefined && gen !== state.circuitGen) return null
   const m = /^(.+)#(\d+):([vi])$/.exec(id)
   if (!m) return null
   const [, type, idxStr, kind] = m
@@ -762,6 +888,31 @@ function zoomTimebase(direction) {
   drawScope()
 }
 
+/**
+ * 当前"一屏"实际用的时基（秒/格）。
+ *
+ * 规则与示波器的自动时基一致：
+ *  - 默认用用户选的档位；
+ *  - 数据跨度明显填不满一屏时，连续收缩到刚好占满约 92% 屏宽（不细于 10µs/格）。
+ *
+ * 抽出来给触发逻辑共用，保证"触发抓一屏"和"屏幕上看到一屏"是同一个时间窗。
+ */
+function effectiveTimebase() {
+  const userTimebase = state.timebase || 0.1
+  const dataSpan = state.samples.length
+    ? state.samples[state.samples.length - 1].t - state.samples[0].t
+    : 0
+  if (dataSpan > 0 && dataSpan < userTimebase * 10 * 0.75) {
+    return Math.max(dataSpan / 10 / 0.92, 10e-6)
+  }
+  return userTimebase
+}
+
+/** 一屏的时间跨度（秒）。 */
+function screenSpan() {
+  return effectiveTimebase() * 10
+}
+
 function drawScope() {
   const canvas = ui.scopeCanvas
   if (!canvas) return
@@ -853,15 +1004,11 @@ function drawScope() {
   // 为什么不能只用档位：档位是离散的（1ms → 10ms 跳一大级），数据跨度 25ms
   // 时最接近的 10ms/格 会让整屏变成 100ms，曲线只占 25% 宽——看起来就是
   // 贴着左边的一小段。真实示波器有 1-2-5 步进的细腻度，这里用连续值补上。
-  const dataSpan = state.samples.length
-    ? state.samples[state.samples.length - 1].t - state.samples[0].t
-    : 0
-  const userTimebase = state.timebase || 0.1
-  let timebase = userTimebase
-  if (dataSpan > 0 && dataSpan < userTimebase * COLS * 0.75) {
-    // 连续收缩：让数据跨度占满约 92% 屏宽（留一点边），且不细于 10µs/格
-    timebase = Math.max(dataSpan / COLS / 0.92, 10e-6)
-  }
+  // 有效时基 = 用户档位，但数据填不满一屏时按实际跨度连续收缩。
+  // 抽成函数是因为「单次触发」必须用同一个值：它原来看的是用户档位（默认 100ms/格
+  // = 一屏 1 秒仿真时间），而教学电路（如 RC 充电）跑 10 秒真实时间才推进几十毫秒
+  // 仿真时间 —— 按用户档位等"一屏"等于永远等不到，触发永远不冻结。
+  const timebase = effectiveTimebase()
   const viewSpan = timebase * COLS
   const tEnd = state.samples[state.samples.length - 1].t
   const tFirst = state.samples[0].t
@@ -1178,12 +1325,20 @@ function renderPresetsSection() {
       // 立刻导入会和清空动作撞车，结果画布变空。等一会儿再导。
       await new Promise((resolve) => setTimeout(resolve, 150))
       w.CircuitJS1.importCircuit(text, false)
+      // 换了整份电路：旧通道一律作废（见 state.circuitGen 的注释）。
+      // 必须在 import 之后 +1，这样表格重建时高亮判定立刻按新代次走。
+      state.circuitGen += 1
+      state.samples = []
       await new Promise((resolve) => setTimeout(resolve, 120))
       refreshElements()
       status.textContent = `已加载「${item.name}」——可以直接拖动元件、改参数`
       toast(`已加载「${item.name}」`)
+      // 通道名要在新代次下重算：否则显示的还是上一份电路的"电阻#0"，而电路已经换了。
+      for (const ch of state.channels) updateChannelLabel(ch)
       renderTable()
-      state.samples = []
+      renderChannels()
+      renderProbeRows()
+      renderScopeReadouts()
       drawScope()
     } catch (err) {
       status.textContent = `加载失败：${err.message}`
@@ -1221,38 +1376,117 @@ function renderPresetsSection() {
   ])
 }
 
+/**
+ * 顶部给「面板」菜单条预留的高度。
+ *
+ * 菜单条固定在左上角（窗口全关后它是唯一入口），所以默认窗口一律从它下面开始，
+ * 否则第一个窗口的标题栏会被菜单条压住，客户点不到拖动区。
+ */
+const MENUBAR_H = 34
+
 const WINDOW_DEFS = [
   {
     id: 'dc-win-parts',
     title: '元件快选',
     build: () => renderPartsSection(),
-    default: { x: 12, y: 12, w: 300, h: 300 },
+    default: { x: 12, y: MENUBAR_H + 4, w: 300, h: 300 },
   },
   {
     id: 'dc-win-measure',
     title: '测量台',
     build: () => renderMeasureSection(),
-    default: { x: 12, y: 322, w: 300, h: 300 },
+    default: { x: 12, y: MENUBAR_H + 4 + 310, w: 300, h: 300 },
   },
   {
     id: 'dc-win-scope',
     title: '示波器',
     build: () => renderScopeSection(),
-    default: { x: 322, y: 12, w: 520, h: 420 },
+    default: { x: 322, y: MENUBAR_H + 4, w: 520, h: 430 },
   },
   {
     id: 'dc-win-presets',
     title: '经典电路',
     build: () => renderPresetsSection(),
-    default: { x: 860, y: 12, w: 400, h: 560 },
+    // 高度收敛到 460：客户笔记本常见 1366×768，右列若占 560 再叠「怎么用」窗，
+    // 加起来必然超出屏幕高度（实测底边到 856，超出 88px）。
+    default: { x: 860, y: MENUBAR_H + 4, w: 400, h: 460 },
+  },
+  {
+    id: 'dc-win-help',
+    title: '怎么用',
+    build: () => renderHelpSection(),
+    // 帮助窗落在「经典电路」下面那格（右列底部），**不能压住中间画布**。
+    // 客户看完帮助的第一步就是去画布上放元件；窗口盖在画布中部会让那一下点空
+    // （实测：帮助窗放在 322,478 时，客户在 (420,700) 拖放电阻，点击被窗口吃掉，
+    //  元件数停在 1 不动）。右列 x=860 本来就是面板列，底部空着，放这里两头不挡。
+    default: { x: 860, y: MENUBAR_H + 4 + 466, w: 400, h: 236 },
   },
 ]
 
+/**
+ * 一个窗口至少要有这么多像素留在可视区内，否则用户再也抓不到它的标题栏。
+ * 取 48：足够露出标题文字和右半边的 —/× 按钮。
+ */
+const WIN_KEEP_VISIBLE = 48
+/** 标题栏高度：窗口顶部允许拖到负值，但不能把整条标题栏拖出屏幕。 */
+const WIN_BAR_H = 30
+
+/**
+ * 把一组窗口几何夹进当前可视区。
+ *
+ * 为什么必须有这一步：几何存在 localStorage 里，客户今天在 1920 宽的显示器上摆好，
+ * 明天换 1366 的笔记本，若不夹取，窗口坐标原样恢复 → 窗口落在可视区之外，
+ * 而且**没有任何入口能把它拉回来**（这正是"误点 × 后整个插件变砖"的同源问题）。
+ *
+ * @param g 形如 { x, y, w, h } 的几何
+ * @param fallback 兜底默认几何（视口太小时按它缩）
+ * @returns 夹取后的新对象，不修改入参
+ */
+function clampGeom(g, fallback) {
+  const vw = Math.max(window.innerWidth || 0, 320)
+  const vh = Math.max(window.innerHeight || 0, 240)
+  const base = fallback || { x: 12, y: 12, w: 300, h: 260 }
+  const out = {
+    x: Number.isFinite(g.x) ? g.x : base.x,
+    y: Number.isFinite(g.y) ? g.y : base.y,
+    w: Number.isFinite(g.w) ? g.w : base.w,
+    h: Number.isFinite(g.h) ? g.h : base.h,
+  }
+  // 尺寸：不小于最小宽高，也不大于视口（否则永远看不到右下角的缩放柄）
+  out.w = Math.min(Math.max(out.w, 220), Math.max(220, vw - 8))
+  out.h = Math.min(Math.max(out.h, 120), Math.max(120, vh - MENUBAR_H - 8))
+  // .dc-win 有 1px 边框，getBoundingClientRect 比 style 宽高各大 2px；
+  // 夹取时预留出来，否则"刚好贴底"在视觉上仍然是溢出 2px。
+  const BORDER = 2
+
+  // 位置夹取规则：**先挪，挪不动再缩**。
+  // 客户在 1920 宽屏上把窗口摆在 y=900，换 1366×768 笔记本后必须把 y 挪回屏内；
+  // 但若窗口本身比屏幕还高，光挪没用 —— 此时要压缩高度，否则底部（含右下角缩放柄）
+  // 永远在屏幕外，客户既看不到内容、也调不回来。实测「怎么用」窗在 768 高的屏上
+  // 底边到 856，属于这一类。
+  out.x = Math.max(0, Math.min(out.x, vw - WIN_KEEP_VISIBLE))
+  // 负坐标必须先夹到 0：只判"底边超出"的话，y=-800 这种"窗口在屏幕上方之外"
+  // 会被漏掉（底边 -368 < vh，条件不成立），客户永远拖不回来。实测复现过。
+  out.y = Math.max(0, Math.min(out.y, vh - WIN_BAR_H))
+  if (out.y + out.h + BORDER > vh) {
+    out.y = Math.max(0, vh - out.h - BORDER)
+    if (out.y + out.h + BORDER > vh) {
+      out.y = MENUBAR_H + 4
+      out.h = Math.max(120, vh - out.y - 4 - BORDER)
+    }
+  }
+  if (out.y + WIN_BAR_H > vh) out.y = Math.max(0, vh - WIN_BAR_H)
+  if (out.x + out.w + BORDER > vw) out.w = Math.max(220, vw - out.x - 4 - BORDER)
+  return out
+}
+
 const WIN_GEOM_KEY = 'dsh-circuit:window-geom'
+const HELP_SEEN_KEY = 'dsh-circuit:help-seen'
 
 function loadGeom() {
   try {
-    return JSON.parse(localStorage.getItem(WIN_GEOM_KEY) || '{}')
+    const raw = JSON.parse(localStorage.getItem(WIN_GEOM_KEY) || '{}')
+    return raw && typeof raw === 'object' ? raw : {}
   } catch {
     return {}
   }
@@ -1262,14 +1496,33 @@ function saveGeom(all) {
   try {
     localStorage.setItem(WIN_GEOM_KEY, JSON.stringify(all))
   } catch {
-    // 忽略
+    // localStorage 可能被浏览器策略拒绝（隐私模式/禁用存储）。窗口位置存不下
+    // 只影响"下次打开还记得摆哪"，不影响使用，所以静默忽略。
   }
+}
+
+/** 清掉全部窗口几何并重建全部窗口：客户点「恢复默认布局」走这条路径。 */
+function resetLayout() {
+  try {
+    localStorage.removeItem(WIN_GEOM_KEY)
+  } catch {
+    // 同 saveGeom：存不下不影响恢复动作本身。
+  }
+  state.closedWins = {}
+  renderShell()
+  renderTable()
+  renderChannels()
+  renderProbeRows()
+  renderSimState()
+  renderPlaceHint()
+  toast('已恢复默认布局')
 }
 
 /** 创建一个浮动窗口：标题栏拖动移动，右下角拖动缩放。 */
 function makeWindow(def) {
   const geom = loadGeom()
-  const g = { ...def.default, ...(geom[def.id] || {}) }
+  // 关键：几何先夹进当前视口再使用。客户换分辨率后旧坐标可能整窗在屏幕外。
+  const g = clampGeom({ ...def.default, ...(geom[def.id] || {}) }, def.default)
 
   const body = el('div', { class: 'dc-win-body' }, [def.build()])
 
@@ -1284,9 +1537,13 @@ function makeWindow(def) {
     },
   })
   const closeBtn = el('button', {
-    class: 'dc-win-btn', type: 'button', title: '关闭', text: '×',
+    class: 'dc-win-btn', type: 'button', title: '关闭（可从"面板"菜单重新打开）', text: '×',
     onclick: () => {
       win.style.display = 'none'
+      // 记住"这个窗口被关了"，刷新页面也保持关闭；但「面板」菜单永远能重新打开。
+      state.closedWins[def.id] = true
+      persistGeom(win)
+      renderPanelMenu()
     },
   })
 
@@ -1318,15 +1575,24 @@ function makeWindow(def) {
 }
 
 function startMoveWin(ev, win, g) {
-  if (ev.target === win.querySelector('.dc-win-btn')) return
+  // 只在标题栏空白处拖动：按到 —/× 按钮时不能触发移动（否则点了按钮窗口会跳）。
+  const target = ev.target
+  if (target && target.closest && target.closest('.dc-win-btn')) return
+  if (ev.button !== 0) return
   ev.preventDefault()
   const startX = ev.clientX
   const startY = ev.clientY
   const ox = win.offsetLeft
   const oy = win.offsetTop
+  const vw = Math.max(window.innerWidth || 0, 320)
+  const vh = Math.max(window.innerHeight || 0, 240)
   const onMove = (e) => {
-    g.x = Math.max(0, ox + (e.clientX - startX))
-    g.y = Math.max(0, oy + (e.clientY - startY))
+    // 拖动过程中就夹取，而不是只夹左/上：老实现只做 Math.max(0, ...)，
+    // 客户把窗口拖到屏幕右边外面后松手，窗口就此"飞了"再也拖不回来。
+    const nx = ox + (e.clientX - startX)
+    const ny = oy + (e.clientY - startY)
+    g.x = Math.max(0, Math.min(nx, vw - WIN_KEEP_VISIBLE))
+    g.y = Math.max(0, Math.min(ny, vh - WIN_BAR_H))
     win.style.left = `${g.x}px`
     win.style.top = `${g.y}px`
   }
@@ -1342,35 +1608,56 @@ function startMoveWin(ev, win, g) {
 }
 
 function startResizeWin(ev, win, g) {
+  if (ev.button !== 0) return
   ev.preventDefault()
   ev.stopPropagation()
   const startX = ev.clientX
   const startY = ev.clientY
   const ow = win.offsetWidth
   const oh = win.offsetHeight
+  const vw = Math.max(window.innerWidth || 0, 320)
+  const vh = Math.max(window.innerHeight || 0, 240)
   const onMove = (e) => {
-    g.w = Math.max(220, ow + (e.clientX - startX))
-    g.h = Math.max(140, oh + (e.clientY - startY))
+    // 上限：不能把窗口拉得比视口还大，否则右下角缩放柄跑到屏幕外，客户再也没法调回来。
+    g.w = Math.max(220, Math.min(ow + (e.clientX - startX), vw - g.x - 4))
+    g.h = Math.max(140, Math.min(oh + (e.clientY - startY), vh - g.y - 4))
     win.style.width = `${g.w}px`
     win.style.height = `${g.h}px`
-    // 尺寸变了要重设画布分辨率
-    drawScope()
+    // 尺寸变了：示波器画布必须跟着重设 bitmap，否则波形被拉伸/裁切。
+    scheduleScopeResize()
   }
   const onUp = () => {
     window.removeEventListener('mousemove', onMove)
     window.removeEventListener('mouseup', onUp)
     document.body.style.cursor = ''
     persistGeom(win)
-    drawScope()
+    scheduleScopeResize(true)
   }
   document.body.style.cursor = 'nwse-resize'
   window.addEventListener('mousemove', onMove)
   window.addEventListener('mouseup', onUp)
 }
 
+/** 拖动缩放时按帧节流重绘示波器：每像素重设一次 canvas bitmap 太浪费。 */
+let scopeResizePending = false
+function scheduleScopeResize(force) {
+  if (force) {
+    scopeResizePending = false
+    requestAnimationFrame(() => drawScope())
+    return
+  }
+  if (scopeResizePending) return
+  scopeResizePending = true
+  requestAnimationFrame(() => {
+    scopeResizePending = false
+    drawScope()
+  })
+}
+
 function persistGeom(win) {
   const all = loadGeom()
   all[win.id] = { ...win.__geom }
+  all.__closed = { ...state.closedWins }
   saveGeom(all)
 }
 
@@ -1379,13 +1666,148 @@ function renderShell() {
   panel.innerHTML = ''
   panel.classList.add('dc-floating')
 
+  const closed = loadGeom().__closed
+  if (closed && typeof closed === 'object') state.closedWins = { ...closed }
+
   for (const def of WINDOW_DEFS) {
-    panel.appendChild(makeWindow(def))
+    const win = makeWindow(def)
+    // 上次被 × 掉的窗口保持关闭，但下面那个「面板」菜单能重新打开它。
+    if (state.closedWins[def.id]) win.style.display = 'none'
+    panel.appendChild(win)
   }
 
   ui.toast = el('div', { class: 'dc-toast' })
   document.body.appendChild(ui.toast)
 
+  renderPanelMenu()
+  applyResponsiveLayout()
+}
+
+/**
+ * 「面板」菜单：整个插件的逃生舱。
+ *
+ * 为什么必须有：每个浮窗标题栏上都有 ×，客户误点一下窗口就没了。原实现里
+ * "关掉 = 永久消失"，只能刷新页面（而刷新后几何又从 localStorage 恢复成关闭态，
+ * 等于刷新也救不回来）。这里提供一个常驻的、不受浮窗状态影响的入口：
+ *   - 列出全部窗口，勾选 = 打开，取消 = 关闭；
+ *   - 「恢复默认布局」清空 localStorage 并重建；
+ *   - 「帮助」随时重新打开说明窗。
+ *
+ * 菜单本身挂在 #panel 内的固定角落，pointer-events 单独打开，所以窗口全关时它还在。
+ */
+function renderPanelMenu() {
+  if (ui.menuBar) {
+    ui.menuBar.innerHTML = ''
+  } else {
+    ui.menuBar = el('div', { class: 'dc-menubar', id: 'dc-menubar' })
+    const panel = document.getElementById('panel')
+    if (!panel) return
+    panel.appendChild(ui.menuBar)
+    document.addEventListener('click', (ev) => {
+      if (!ui.menuBar) return
+      if (ui.menuBar.contains(ev.target)) return
+      const dd = ui.menuBar.querySelector('.dc-menu-dropdown')
+      if (dd) dd.classList.remove('is-open')
+    })
+  }
+
+  const title = el('span', { class: 'dc-menubar-title' })
+  title.innerHTML = probeIconSvg('#4ea1ff', 13) + '<b>电路小实验</b>'
+  ui.menuBar.appendChild(title)
+
+  const dropdown = el('div', { class: 'dc-menu-dropdown' })
+  for (const def of WINDOW_DEFS) {
+    const isOpen = !state.closedWins[def.id]
+    const item = el('button', {
+      class: `dc-menu-item${isOpen ? ' is-on' : ''}`,
+      type: 'button',
+      onclick: () => {
+        toggleWindow(def.id)
+        renderPanelMenu()
+      },
+    }, [
+      el('span', { class: 'dc-menu-check', text: isOpen ? '✓' : '' }),
+      el('span', { text: def.title }),
+    ])
+    dropdown.appendChild(item)
+  }
+  dropdown.appendChild(el('div', { class: 'dc-menu-sep' }))
+  dropdown.appendChild(el('button', {
+    class: 'dc-menu-item', type: 'button', text: '恢复默认布局',
+    onclick: () => {
+      dropdown.classList.remove('is-open')
+      resetLayout()
+      renderPanelMenu()
+    },
+  }))
+  dropdown.appendChild(el('button', {
+    class: 'dc-menu-item', type: 'button', text: '清除界面记忆并刷新',
+    title: '清掉窗口位置记忆后重新加载页面（界面错乱时的最后一招）',
+    onclick: () => {
+      try { localStorage.removeItem(WIN_GEOM_KEY) } catch { /* 存不下不影响刷新 */ }
+      window.location.reload()
+    },
+  }))
+
+  const trigger = el('button', {
+    class: 'dc-menubar-btn', type: 'button', text: '面板 ▾',
+    title: '打开/关闭各个面板窗口，或恢复默认布局',
+    onclick: (ev) => {
+      ev.stopPropagation()
+      dropdown.classList.toggle('is-open')
+    },
+  })
+  ui.menuBar.appendChild(trigger)
+  ui.menuBar.appendChild(dropdown)
+}
+
+/** 打开或关闭某个窗口（by id），并同步记忆与菜单勾选状态。 */
+function toggleWindow(id) {
+  const win = document.getElementById(id)
+  if (!win) return
+  const willOpen = win.style.display === 'none'
+  win.style.display = willOpen ? '' : 'none'
+  if (willOpen) {
+    state.closedWins[id] = false
+    // 重新打开时确保它在可视区内（可能是上次在别的分辨率下关掉的）
+    const def = WINDOW_DEFS.find((d) => d.id === id)
+    const all = loadGeom()
+    const g = clampGeom({ ...(def ? def.default : {}), ...(all[id] || {}) }, def ? def.default : undefined)
+    win.style.left = `${g.x}px`
+    win.style.top = `${g.y}px`
+    win.style.width = `${g.w}px`
+    win.style.height = `${g.h}px`
+    if (win.__geom) Object.assign(win.__geom, g)
+    scheduleScopeResize(true)
+  } else {
+    state.closedWins[id] = true
+  }
+  const all = loadGeom()
+  all.__closed = { ...state.closedWins }
+  saveGeom(all)
+}
+
+/**
+ * 窄屏兜底：客户笔记本常见 1366×768，默认布局右边界 1262 刚好贴边，
+ * 更窄（1280、或浏览器缩放到 125%）时「经典电路」会被推到屏幕外。
+ * 这里在首次渲染和窗口尺寸变化时把每个窗口夹回可视区。
+ */
+function applyResponsiveLayout() {
+  for (const def of WINDOW_DEFS) {
+    const win = document.getElementById(def.id)
+    if (!win || win.style.display === 'none') continue
+    const g = win.__geom
+    if (!g) continue
+    const c = clampGeom(g, def.default)
+    if (c.x !== g.x || c.y !== g.y || c.w !== g.w || c.h !== g.h) {
+      Object.assign(g, c)
+      win.style.left = `${c.x}px`
+      win.style.top = `${c.y}px`
+      win.style.width = `${c.w}px`
+      win.style.height = `${c.h}px`
+    }
+  }
+  scheduleScopeResize(true)
 }
 
 
@@ -1435,6 +1857,52 @@ function renderPartsSection() {
   ])
   if (state.partsCollapsed) body.style.display = 'none'
   return el('section', { class: 'dc-section', id: 'dc-parts' }, [head, body])
+}
+
+/**
+ * 「怎么用」面板。
+ *
+ * 客户第一次打开时看到的是四个浮窗 + 一块黑色画布，没有任何文字告诉他下一步做什么
+ * （菜单栏被 CSS 移出可视区、元件名仍是英文）。这个面板就是补上这条最短路径：
+ * 四步走完一个能跑的电路，再看读数、再上示波器。
+ */
+function renderHelpSection() {
+  const wrap = el('div', { class: 'dc-help' })
+
+  const steps = [
+    ['① 放元件', '左边「元件快选」里点一个（例如「电阻」），然后把鼠标移到黑色画布上按住拖动，松手就放好了。放完会自动回到选择状态。'],
+    ['② 连成回路', '点「导线」，在画布上从元件的一端拖到另一端。连不通的地方会显示成半截线，补一段导线即可。'],
+    ['③ 接电源和接地', '点「直流电源」放一个，再用「接地」放一个。电路里必须有接地，否则求解器算不出各点电位。'],
+    ['④ 看读数', '「测量台」每一行就是一个元件，右边是它的电压和电流，每半秒刷新一次。'],
+    ['⑤ 看波形', '在「测量台」某一行点 V 或 I，这个量就接到「示波器」上。滚轮缩放时间轴，框选放大细节。'],
+  ]
+  for (const [head, body] of steps) {
+    wrap.appendChild(el('div', { class: 'dc-help-step' }, [
+      el('b', { class: 'dc-help-head', text: head }),
+      el('span', { class: 'dc-help-body', text: body }),
+    ]))
+  }
+
+  wrap.appendChild(el('div', { class: 'dc-help-tip' }, [
+    el('b', { text: '不想自己搭？' }),
+    el('span', { text: '右边「经典电路」里点一个现成的（欧姆定律、分压、RC 充电……），加载后可以直接拖动、改数值。' }),
+  ]))
+  wrap.appendChild(el('div', { class: 'dc-help-tip' }, [
+    el('b', { text: '窗口不见了？' }),
+    el('span', { text: '左上角「面板 ▾」里可以重新打开任意窗口，或点「恢复默认布局」。' }),
+  ]))
+  wrap.appendChild(el('div', { class: 'dc-help-tip' }, [
+    el('b', { text: '改元件的值：' }),
+    el('span', { text: '在画布上右键元件 → Edit，或把鼠标停在该元件上滚轮微调。' }),
+  ]))
+
+  return el('section', { class: 'dc-section', id: 'dc-help-section' }, [
+    el('div', { class: 'dc-section-head' }, [
+      el('h2', { text: '怎么用' }),
+      el('span', { class: 'dc-hint', text: '五步搭出一个能跑的电路' }),
+    ]),
+    el('div', { class: 'dc-section-body' }, [wrap]),
+  ])
 }
 
 function renderMeasureSection() {
@@ -1491,6 +1959,15 @@ function renderScopeSection() {
   ui.scopeCanvas.addEventListener('mouseup', (ev) => endZoomBox(ev))
   ui.scopeCanvas.addEventListener('mouseleave', () => cancelZoomBox())
   ui.scopeCanvas.style.cursor = 'crosshair'
+
+  // 画布尺寸跟随容器：CSS 给了 height:100%，但 canvas 的 bitmap 需要显式重设，
+  // 否则窗口拉高后波形还是按旧高度画（原实现实测：窗口 422→550 高，canvas 仍然
+  // 200 高，多出来的空白区什么都不画）。resize 由 drawScope 自己按 clientWidth/
+  // clientHeight 重设 bitmap，这里只负责在尺寸变化时触发一次重绘。
+  if (typeof ResizeObserver === 'function') {
+    state.scopeObserver = new ResizeObserver(() => scheduleScopeResize())
+    state.scopeObserver.observe(ui.scopeCanvas)
+  }
   ui.scopeMeta = el('div', { class: 'dc-scope-meta' }, [el('span', { text: '还没开始记录' })])
   ui.scopeEmpty = el('div', { class: 'dc-scope-empty' }, [
     el('div', { class: 'dc-scope-empty-title', text: '还没有通道' }),
@@ -1511,10 +1988,11 @@ function renderScopeSection() {
     drawScope()
   })
 
-  // 垂直档位：自动 / 手动伏格
-  ui.vdivSelect = el('select', { class: 'dc-scope-select' },
-    [{ v: 0, label: '自动' }, ...VOLTS_PER_DIV.map((v) => ({ v, label: `${fmtV(v)}/格` }))]
-      .map((item) => el('option', { value: String(item.v), text: item.label })))
+  // 垂直档位：自动 / 手动「每格多少」。
+  //
+  // 单位跟着**当前启用的通道**走：只测电流时列 A/格，否则列 V/格。
+  // 原实现恒列 V/格，客户量 50mA 却只能选"1 V/格"，档位名与实际量纲不符。
+  ui.vdivSelect = el('select', { class: 'dc-scope-select' })
   ui.vdivSelect.value = '0'
   ui.vdivSelect.addEventListener('change', () => {
     state.voltsPerDiv = Number(ui.vdivSelect.value)
@@ -1527,8 +2005,10 @@ function renderScopeSection() {
   ui.couplingSelect.value = '0'
   ui.couplingSelect.addEventListener('change', () => {
     state.coupling = ui.couplingSelect.value === '1' ? 'ac' : 'dc'
-    state.samples = []
+    // 不清空样本：耦合只影响**绘制时**是否减去各自均值（见 drawScope 的 means），
+    // 样本本身始终是真实测量值。清空会让客户一切换就丢失刚抓到的波形。
     drawScope()
+    renderScopeReadouts()
     toast(state.coupling === 'ac' ? '已切到交流耦合：会滤掉直流分量，只看波动' : '已切回直流耦合：显示真实数值')
   })
 
@@ -1604,10 +2084,16 @@ function renderScopeSection() {
       state.triggerArmed = true
       state.triggerCapturing = false
       state.triggerLastV = null
+      state.triggerArmedAt = simTime()
+      // triggerRef 必须一起归零：否则会沿用上一次触发（可能来自另一个电路）的电平，
+      // 结果永远等不到穿越。
+      state.triggerRef = null
       toast('单次触发：正在等上升沿，抓到后冻结一屏')
     } else {
       state.triggerArmed = false
       state.triggerCapturing = false
+      state.triggerRef = null
+      state.triggerLastV = null
     }
     drawScope()
   })
@@ -1634,8 +2120,11 @@ function renderScopeSection() {
       el('h2', { text: '示波器' }),
       el('span', { class: 'dc-hint', text: '通道 = 正端 − 负端' }),
     ]),
+    // 顺序有讲究：通道读数（峰峰/RMS/频率）排在探头选择行**之前**。
+    // 探头行随通道数增长，若排在读数前面，3 通道时读数会被挤出窗口底部（实测被裁掉），
+    // 而读数才是学生最常看的东西。
     el('div', { class: 'dc-section-body' }, [
-      ui.chips, ctl1, ctl2, ctl3, ui.probeRows, ui.scopeWrap, ui.scopeMeta, ui.readouts,
+      ui.chips, ctl1, ctl2, ui.scopeWrap, ui.scopeMeta, ui.readouts, ctl3, ui.probeRows,
     ]),
   ])
 }
@@ -1674,6 +2163,7 @@ function addProbeChannel(kind) {
     }
     state.channels.push({
       key: `I-${Date.now()}`,
+      gen: state.circuitGen,
       measure: 'current',
       type: 'current',
       index: -1,
@@ -1691,6 +2181,7 @@ function addProbeChannel(kind) {
     }
     state.channels.push({
       key: `V-${Date.now()}`,
+      gen: state.circuitGen,
       measure: 'voltage',
       type: 'probe',
       index: -1,
@@ -1703,10 +2194,23 @@ function addProbeChannel(kind) {
     })
   }
 
+  // 新增通道必须立刻算好显示名：原实现 label 留空，客户在通道条上看到的是
+  // 一片空白，几乎无法判断这个通道测的是什么。
+  updateChannelLabel(state.channels[state.channels.length - 1])
+
   state.samples = []
   renderChannels()
   renderProbeRows()
   renderScopeReadouts()
+  // 测量台对应行的高亮要跟着变（与 addChannel 保持一致，同样防重入）。
+  if (!state.inChannelRender) {
+    state.inChannelRender = true
+    try {
+      renderTable()
+    } finally {
+      state.inChannelRender = false
+    }
+  }
 }
 
 /**
@@ -1743,17 +2247,40 @@ function collectProbePoints() {
     })
   }
 
-  // 电流测点：电流表、导线、以及有电流的元件
+  // 电流测点：电流表、导线、以及有电流的元件。
+  //
+  // 排序很重要：`addProbeChannel('current')` 默认取第一个测点。原来的顺序就是
+  // 电路里的元件顺序，实测第一个常常是 VarRailElm（电位器滑杆）或导线 ——
+  // 对初中教学来说几乎总是错的答案。这里按"测量意义"分组，让电阻/灯泡/LED/
+  // 电容/电感/电流表排在前面，导线与电源垫底。
+  const CURRENT_MEANINGFUL = [
+    'AmmeterElm',
+    'ResistorElm', 'LampElm', 'LEDElm', 'DiodeElm',
+    'CapacitorElm', 'InductorElm',
+    'PotElm', 'SwitchElm',
+  ]
+  const rank = (type) => {
+    const i = CURRENT_MEANINGFUL.indexOf(type)
+    if (i >= 0) return i
+    if (type === 'WireElm') return 900
+    if (type === 'VoltageElm' || type === 'DCVoltageElm' || type === 'ACVoltageElm') return 950
+    return 500
+  }
+  const currentPoints = []
   for (const e of state.elements) {
     if (e.type === 'ProbeElm' || e.type === 'OutputElm' || e.type === 'GroundElm') continue
-    points.push({
+    const hint = elementValueHint(e)
+    currentPoints.push({
       id: `${e.type}#${e.index}:i`,
-      label: `${e.label} 电流（${fmtA(e.current)}）`,
+      label: hint ? `${e.label}#${e.index} ${hint} 电流（${fmtA(e.current)}）` : `${e.label}#${e.index} 电流（${fmtA(e.current)}）`,
       kind: 'current',
       type: e.type,
       index: e.index,
+      rank: rank(e.type),
     })
   }
+  currentPoints.sort((a, b) => a.rank - b.rank || a.index - b.index)
+  for (const p of currentPoints) points.push(p)
   return points
 }
 
@@ -1816,13 +2343,19 @@ function renderProbeRows() {
 
     if (isCurrent) {
       const sel = el('select', { class: 'dc-scope-select dc-probe-sel', title: '选择要测电流的元件' }, buildCurrentOpts())
+      const stale = ch.gen !== undefined && ch.gen !== state.circuitGen
       const wantId = ch.currentType + '#' + ch.currentIndex + ':i'
-      sel.value = currentOpts.some((p) => p.id === wantId) ? wantId : (currentOpts[0] ? currentOpts[0].id : '')
+      // 断线通道不要把"新电路里第一个元件"顶上来当选中项：那会让客户以为它已经接好了，
+      // 实际读的却是另一个元件。留空，等客户自己重新选（选完会更新代次）。
+      sel.value = currentOpts.some((p) => p.id === wantId) && !stale ? wantId : ''
+      if (!sel.value && currentOpts.length && !stale) sel.value = currentOpts[0].id
       sel.addEventListener('change', () => {
         const p = currentOpts.find((x) => x.id === sel.value)
         if (p) {
           ch.currentType = p.type
           ch.currentIndex = p.index
+          // 客户重新指定了测点 = 这个通道重新接回当前电路
+          ch.gen = state.circuitGen
         }
         updateChannelLabel(ch)
         renderChannels()
@@ -1836,9 +2369,12 @@ function renderProbeRows() {
     } else {
       const makeProbeSel = (current, onPick, tip) => {
         const sel = el('select', { class: 'dc-scope-select dc-probe-sel', title: tip }, buildProbeOpts())
-        const valid = probeOpts.some((p) => p.id === current)
+        const stale = ch.gen !== undefined && ch.gen !== state.circuitGen
+        const valid = probeOpts.some((p) => p.id === current) && !stale
         sel.value = valid ? current : '__gnd__'
         sel.addEventListener('change', () => {
+          // 客户动了这个下拉 = 把通道重新接回当前电路
+          ch.gen = state.circuitGen
           onPick(sel.value)
           updateChannelLabel(ch)
           renderChannels()
@@ -1873,6 +2409,43 @@ function renderProbeRows() {
   }
 }
 
+/**
+ * 从内核 getInfo() 里取这元件的**参数摘要**，用来区分同类元件。
+ *
+ * 为什么需要：一个电路里常常有好几个电阻。原实现给通道起名叫"电阻 电压"，
+ * 两个电阻就得到两个一模一样的名字，客户在下拉框里根本分不清哪个是哪个。
+ * 内核的 getInfo() 会给出真实参数（`R = 1 kΩ`），直接取来做后缀即可。
+ *
+ * @param e state.elements 里的一项
+ * @returns 形如 `1 kΩ` 的短标签；取不到时返回空串（不编造）
+ */
+function elementValueHint(e) {
+  if (!e || !Array.isArray(e.info)) return ''
+  for (const raw of e.info) {
+    const line = String(raw || '')
+    const m = /^[A-Za-z_]+\s*=\s*(.+)$/.exec(line)
+    if (!m) continue
+    const value = m[1].trim()
+    // 电流/电压/功率是**测量结果**，不是元件参数：拿它命名会让名字每帧都变。
+    if (/^(I|V|Vd|P|W)\s*=/.test(line)) continue
+    if (!value) continue
+    return value
+  }
+  return ''
+}
+
+/** 在通道列表里给同名通道加序号，保证客户能分辨（电阻(1) / 电阻(2)）。 */
+function uniqueChannelLabel(label, self) {
+  const same = state.channels.filter((c) => c !== self && c.label === label)
+  if (same.length === 0) return label
+  const used = new Set(state.channels.filter((c) => c !== self).map((c) => c.label))
+  for (let i = 1; i <= state.channels.length + 2; i += 1) {
+    const candidate = `${label} #${i}`
+    if (!used.has(candidate)) return candidate
+  }
+  return label
+}
+
 /** 依据测量点选择刷新通道显示名。 */
 function updateChannelLabel(ch) {
   const all = collectProbePoints()
@@ -1882,16 +2455,30 @@ function updateChannelLabel(ch) {
     return p ? p.label : '（已断开）'
   }
 
-  if (channelIsCurrent(ch)) {
-    const el2 = state.elements.find((e) => e.type === ch.currentType && e.index === ch.currentIndex)
-    ch.label = el2 ? `${el2.label} 电流` : '（已断开）'
+  // 代次不符：这个通道属于上一份电路。必须直接标明"已断开"，绝不能去新电路里
+  // 按 (type,index) 找同序号元件 —— 那会给出一个看起来正常、实际错误的读数。
+  if (ch.gen !== undefined && ch.gen !== state.circuitGen) {
+    ch.label = '（已断开 · 换过电路）'
     return
   }
 
-  // 电压通道：区分"单端对地"和"两点电位差"
-  const pos = lookup(ch.positive)
-  const neg = lookup(ch.negative)
-  ch.label = neg === '接地' ? `${pos}（对地）` : `电位差 (${pos} − ${neg})`
+  if (channelIsCurrent(ch)) {
+    const target = state.elements.find((e) => e.type === ch.currentType && e.index === ch.currentIndex)
+    if (!target) {
+      ch.label = '（已断开）'
+    } else {
+      const hint = elementValueHint(target)
+      // 编号跟着元件序号走：同型号的第二个电阻叫"电阻#3"，客户能对上表格。
+      const base = `${target.label}#${target.index}`
+      ch.label = hint ? `${base} ${hint} 电流` : `${base} 电流`
+    }
+  } else {
+    // 电压通道：区分"单端对地"和"两点电位差"
+    const pos = lookup(ch.positive)
+    const neg = lookup(ch.negative)
+    ch.label = neg === '接地' ? `${pos}（对地）` : `电位差 (${pos} − ${neg})`
+  }
+  ch.label = uniqueChannelLabel(ch.label, ch)
 }
 
 /**
@@ -2072,7 +2659,9 @@ function fmtHz(f) {
 function renderTable() {
   if (!ui.tableWrap) return
 
-  const signature = state.elements.map((e) => `${e.type}#${e.index}`).join('|')
+  // 签名里带上内核给的参数摘要：客户把电阻从 1k 改成 2k 后，表格里"±"数值靠
+  // 500ms 轮询能刷，但通道名/下拉选项里的 `R = 1 kΩ` 是构建期取的，不重建就永远是旧值。
+  const signature = state.elements.map((e) => `${e.type}#${e.index}:${elementValueHint(e)}`).join('|')
   const channelSig = state.channels.map((c) => c.key).join('|')
   const structural = `${signature}::${channelSig}`
 
@@ -2113,8 +2702,16 @@ function renderTable() {
     tr.appendChild(vCell)
     tr.appendChild(iCell)
 
-    const hasV = state.channels.some((c) => c.type === e.type && c.index === e.index && c.signal === 'v')
-    const hasI = state.channels.some((c) => c.type === e.type && c.index === e.index && c.signal === 'i')
+    // 高亮判定必须同时认两代通道写法：
+    //  - 旧式：addChannel() 写的 { type, index, signal }
+    //  - 新式：addProbeChannel() 写的 { measure:'current', currentType, currentIndex }
+    // 只判旧式的话，用示波器面板"+ 电流通道"加进来的通道在表格里永远不高亮，
+    // 客户点了按钮看不到任何反馈，会以为功能坏了。
+    const hasV = state.channels.some((c) => c.type === e.type && c.index === e.index && c.signal === 'v' && !channelIsCurrent(c))
+    const hasI = state.channels.some((c) => channelIsCurrent(c) && (
+      (c.currentType === e.type && c.currentIndex === e.index)
+      || (c.type === e.type && c.index === e.index && c.signal === 'i')
+    ))
     const cell = el('td', { class: 'dc-ch-cell' })
     cell.appendChild(el('button', {
       class: `dc-ch-toggle${hasV ? ' is-on' : ''}`,
@@ -2152,8 +2749,40 @@ function renderTable() {
 }
 
 
+/**
+ * 重建纵向档位下拉，单位跟着当前启用通道走（全电流 → A/格，否则 V/格）。
+ *
+ * 只在"单位或档位列表"真的变了时重建，避免每帧重设 select 把用户的选择冲掉。
+ */
+function rebuildVerticalScale() {
+  if (!ui.vdivSelect) return
+  const enabled = state.channels.filter((c) => c.enabled)
+  const onlyCurrent = enabled.length > 0 && enabled.every((c) => channelIsCurrent(c))
+  const unit = onlyCurrent ? 'A' : 'V'
+  const table = onlyCurrent ? AMPS_PER_DIV : VOLTS_PER_DIV
+  const fmt = onlyCurrent ? fmtA : fmtV
+  const sig = `${unit}:${table.join(',')}`
+  if (ui.vdivSig === sig) return
+  ui.vdivSig = sig
+
+  // 保留用户已选的档位（若新表里没有就退回自动）
+  const prev = state.voltsPerDiv
+  ui.vdivSelect.innerHTML = ''
+  ui.vdivSelect.appendChild(el('option', { value: '0', text: '自动' }))
+  for (const v of table) {
+    ui.vdivSelect.appendChild(el('option', { value: String(v), text: `${fmt(v)}/格` }))
+  }
+  if (prev > 0 && table.some((v) => Math.abs(v - prev) < 1e-18)) {
+    ui.vdivSelect.value = String(prev)
+  } else {
+    if (prev > 0) state.voltsPerDiv = 0
+    ui.vdivSelect.value = '0'
+  }
+}
+
 function renderChannels() {
   if (!ui.chips) return
+  rebuildVerticalScale()
   ui.chips.innerHTML = ''
   if (state.channels.length === 0) {
     ui.chips.appendChild(el('span', { class: 'dc-empty', style: 'padding:2px 0', text: '还没有记录通道' }))
@@ -2200,7 +2829,14 @@ function renderSimState() {
   ui.simState.appendChild(el('span', {}, [el('b', { text: state.running ? '运行中' : '已暂停' })]))
   ui.simState.appendChild(el('span', {}, ['仿真时间 ', el('b', { text: fmtTime(state.time) })]))
   ui.simState.appendChild(el('span', {}, ['元件 ', el('b', { text: String(state.elements.length) })]))
+
+  // 两个窗口各有一个运行按钮（测量台 + 示波器），状态必须同步。
+  // 原实现只更新测量台那个，客户在示波器里点暂停后按钮仍显示"运行"，看起来像没反应。
   if (ui.runBtn) ui.runBtn.textContent = state.running ? '暂停仿真' : '继续仿真'
+  if (ui.scopeRunBtn) {
+    ui.scopeRunBtn.textContent = state.running ? '运行' : '已暂停'
+    ui.scopeRunBtn.classList.toggle('is-on', !state.running)
+  }
 }
 
 function toggleRun() {
@@ -2409,6 +3045,34 @@ function boot() {
   whenSimReady(() => {
     toast('仿真内核已就绪：点元件，然后在画布上拖动放置')
   })
+
+  // 视口变化（客户改窗口大小、换接显示器、浏览器缩放）时把窗口夹回可视区。
+  // 不做这一步：客户在 1920 上摆好布局，缩到 1280 后右半边窗口全部跑到屏幕外。
+  window.addEventListener('resize', () => {
+    applyResponsiveLayout()
+  })
+
+  // 第一次打开时自动展开「怎么用」。只自动弹一次（记在 localStorage），
+  // 之后由「面板 ▾」菜单手动打开，免得每次刷新都挡着画布。
+  try {
+    const seen = localStorage.getItem(HELP_SEEN_KEY) === '1'
+    if (!seen) {
+      localStorage.setItem(HELP_SEEN_KEY, '1')
+      const helpWin = document.getElementById('dc-win-help')
+      if (helpWin && state.closedWins['dc-win-help']) {
+        delete state.closedWins['dc-win-help']
+        helpWin.style.display = ''
+        renderPanelMenu()
+      }
+    } else if (!state.closedWins['dc-win-help']) {
+      // 已看过但没关它：保持默认打开
+    } else {
+      const helpWin = document.getElementById('dc-win-help')
+      if (helpWin) helpWin.style.display = 'none'
+    }
+  } catch {
+    // localStorage 不可用时就不做"只弹一次"的记忆，帮助窗按默认几何显示。
+  }
 
   const simIframe = simFrame()
   if (simIframe) {

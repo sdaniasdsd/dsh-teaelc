@@ -40,6 +40,48 @@ const MIME_BY_EXT = new Map([
   ['.ttf', 'font/ttf'],
 ])
 
+/**
+ * 站内图标：内联 SVG data URI。
+ *
+ * 为什么不放 favicon.ico：浏览器会自动请求 /favicon.ico，而本插件只占用
+ * /dsh-circuit/* 前缀，宿主那张 404 会出现在控制台里，客户看到红字就以为坏了。
+ * 内联在 <link rel="icon"> 里则不产生任何额外请求。
+ */
+const FAVICON_DATA_URI = 'data:image/svg+xml,' + encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">' +
+  '<rect width="24" height="24" rx="5" fill="#0d1117"/>' +
+  '<path d="M3 12h3.5M17.5 12H21M6.5 7.5v9M17.5 7.5v9M10 12h4" ' +
+  'stroke="#4ea1ff" stroke-width="1.8" stroke-linecap="round" fill="none"/></svg>',
+)
+
+/**
+ * 上游 CircuitJS1 的控制台噪声兜底。
+ *
+ * 上游构建产物里做了两件会 404 的事，客户只看控制台会以为插件坏了：
+ *  1) circuitjs.css 引用 images/hborder.png（GWT 菜单栏九宫格贴图）；
+ *  2) 启动时无条件向 service-worker.js 注册 Service Worker。
+ * 两者都不影响功能（菜单栏已被面板 CSS 移出可视区），但报错会一直挂在控制台。
+ * 这里给它们各返回一个合法的空响应，把噪声消掉，不改变任何行为。
+ */
+const QUIET_FILES = new Map([
+  // 1×1 透明 PNG：hborder.png 只是菜单栏背景贴图。
+  ['images/hborder.png', {
+    type: 'image/png',
+    body: Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
+      'base64',
+    ),
+  }],
+  // 空 Service Worker：注册会成功，然后立刻把自己注销，不留缓存劫持风险。
+  ['service-worker.js', {
+    type: 'text/javascript; charset=utf-8',
+    body: Buffer.from(
+      "self.addEventListener('install',()=>self.skipWaiting());" +
+      "self.addEventListener('activate',()=>{self.registration.unregister();return self.clients.claim();});\n",
+    ),
+  }],
+])
+
 const CACHE_HEADERS = {
   // 内核 JS 有 1MB+，但版本固定：允许浏览器缓存，同时每次校验（no-cache），
   // 这样开发期改素材立刻生效，又不牺牲加载速度。
@@ -109,6 +151,25 @@ export function resolveAssetPath(pathname) {
   return abs
 }
 
+/**
+ * 上游噪声路径的静态响应（见 QUIET_FILES）。命中返回 Buffer，未命中返回 null。
+ *
+ * 单独抽出来是因为它必须**先于**磁盘查找：这些文件本来就不在 assets/app 里，
+ * 走正常流程只会得到一张 404。
+ */
+export function quietAsset(pathname) {
+  if (!pathname.startsWith(APP_BASE)) return null
+  let rel = pathname.slice(APP_BASE.length)
+  if (rel.startsWith('/')) rel = rel.slice(1)
+  let decoded
+  try {
+    decoded = decodeURIComponent(rel)
+  } catch {
+    return null
+  }
+  return QUIET_FILES.get(decoded) ?? null
+}
+
 function sendText(res, status, body) {
   res.writeHead(status, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' })
   res.end(body)
@@ -142,6 +203,7 @@ export function shellHtml(embed = false) {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>电路小实验 · 电路模拟器</title>
 <meta name="generator" content="CircuitJS1 (Paul Falstad / Iain Sharp, GPL-2.0) wrapped by dsh-circuit">
+<link rel="icon" href="${FAVICON_DATA_URI}">
 <link rel="stylesheet" href="${APP_BASE}/panel.css">
 <style>
   /* 画布占满整窗；所有面板都是浮在画布上的独立窗口。 */
@@ -217,8 +279,15 @@ export function mountRoutes(ctx) {
       } catch {
         return sendText(res, 400, 'bad path')
       }
+      // 先查上游噪声兜底表：这些路径本来就不在磁盘上，走查找只会 404。
+      const quiet = quietAsset(pathname)
+      if (quiet !== null) {
+        res.writeHead(200, { 'Content-Type': quiet.type, ...CACHE_HEADERS, 'Content-Length': String(quiet.body.length) })
+        res.end(req.method === 'HEAD' ? undefined : quiet.body)
+        return undefined
+      }
       const abs = resolveAssetPath(pathname)
-      if (abs === null) return sendText(res, 404, `not found: ${pathname}`)
+      if (abs === null) return sendText(res, 404, 'not found: ' + pathname)
       return streamFile(req, res, abs, pathname)
     },
   }))
@@ -278,6 +347,9 @@ export function apply(ctx, _config) {
 export const internals = {
   hostRejection,
   resolveAssetPath,
+  quietAsset,
+  QUIET_FILES,
+  FAVICON_DATA_URI,
   shellHtml,
   mountRoutes,
   streamFile,

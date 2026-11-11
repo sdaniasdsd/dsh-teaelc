@@ -212,8 +212,18 @@ table.dc-table tbody tr.is-hot { background: #16202b; }
 }
 .dc-chip .dc-chip-x:hover { color: var(--bad); }
 
-.dc-scope-wrap { position: relative; border: 1px solid var(--line-soft); border-radius: 8px; background: #060a0f; overflow: hidden; }
-canvas.dc-scope { display: block; width: 100%; height: 200px; }
+.dc-scope-wrap {
+  position: relative;
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  background: #060a0f;
+  overflow: hidden;
+  /* 关键：画布区吃掉窗口剩余高度，而不是固定 200px。
+     否则客户把示波器窗口拉大，波形还是只有一条 200px 的窄带。 */
+  flex: 1 1 auto;
+  min-height: 120px;
+}
+canvas.dc-scope { display: block; width: 100%; height: 100%; }
 .dc-scope-empty {
   position: absolute;
   inset: 0;
@@ -277,14 +287,20 @@ canvas.dc-scope { display: block; width: 100%; height: 200px; }
 .dc-toast {
   position: fixed;
   left: 50%;
-  bottom: 24px;
+  /* 放到顶部而不是底部：底部是画布和示波器窗口的地盘，提示会被盖住看不见
+     （实测截图里"已加载「欧姆定律」"被示波器遮了一半）。 */
+  top: 12px;
   transform: translateX(-50%);
+  z-index: 9000;
+  max-width: min(560px, 90vw);
+  text-align: center;
   background: #1b2530;
   border: 1px solid #2f4a63;
   color: var(--text);
   padding: 7px 14px;
   border-radius: 8px;
   font-size: 12px;
+  box-shadow: 0 6px 20px #000000aa;
   opacity: 0;
   transition: opacity .18s ease;
   pointer-events: none;
@@ -623,6 +639,11 @@ canvas.dc-scope { display: block; width: 100%; height: 200px; }
   flex-direction: column;
   gap: 4px;
   margin-bottom: 7px;
+  /* 通道多时（最多 6 条）这一块会长到把画布挤没，所以自己滚动、限高。
+     读数条已经移到它上面，因此这里被裁也不影响学生看数字。 */
+  max-height: 104px;
+  overflow-y: auto;
+  flex: 0 0 auto;
 }
 .dc-probe-row {
   display: flex;
@@ -788,3 +809,132 @@ canvas.dc-scope { display: block; width: 100%; height: 200px; }
   border-color: #b06a3c;
   color: #f0b37e;
 }
+
+/* ================================================================== */
+/* 「面板」菜单条：常驻在左上角，是窗口全关后唯一的入口                */
+/* ================================================================== */
+.dc-menubar {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 8000;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  /* 外层 #panel 是 pointer-events:none（让画布可拖），菜单条必须自己打开 */
+  pointer-events: auto;
+}
+.dc-menubar-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding: 0 9px;
+  border: 1px solid #2a3a49;
+  border-radius: 7px;
+  background: #111821ee;
+  backdrop-filter: blur(4px);
+  color: #cfe3ff;
+  font-size: 11.5px;
+  letter-spacing: .3px;
+}
+.dc-menubar-title svg { display: block; }
+.dc-menubar-btn {
+  appearance: none;
+  height: 24px;
+  padding: 0 10px;
+  border: 1px solid #2a3a49;
+  border-radius: 7px;
+  background: #18212b;
+  color: #e6edf3;
+  font-family: inherit;
+  font-size: 11.5px;
+  cursor: pointer;
+}
+.dc-menubar-btn:hover { background: #24313f; border-color: #3a4c5e; }
+
+.dc-menu-dropdown {
+  position: absolute;
+  left: 8px;
+  top: 32px;
+  display: none;
+  flex-direction: column;
+  min-width: 176px;
+  padding: 5px;
+  border: 1px solid #2a3a49;
+  border-radius: 9px;
+  background: #151b23f2;
+  box-shadow: 0 10px 30px #000000bb;
+  backdrop-filter: blur(6px);
+}
+.dc-menu-dropdown.is-open { display: flex; }
+.dc-menu-item {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  padding: 5px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #dbe6f2;
+  font-family: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+.dc-menu-item:hover { background: #26323f; }
+.dc-menu-item.is-on { color: #e6edf3; }
+.dc-menu-check {
+  flex: 0 0 auto;
+  width: 12px;
+  color: var(--accent);
+  font-size: 11px;
+}
+.dc-menu-sep {
+  height: 1px;
+  margin: 4px 2px;
+  background: #2a3a49;
+}
+
+/* ================================================================== */
+/* 「怎么用」面板                                                      */
+/* ================================================================== */
+.dc-help { display: flex; flex-direction: column; gap: 9px; }
+.dc-help-step {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-left: 9px;
+  border-left: 2px solid #2a3a49;
+}
+.dc-help-head { color: #cfe3ff; font-size: 12px; font-weight: 700; }
+.dc-help-body { color: var(--text-dim); font-size: 11.5px; line-height: 1.6; }
+.dc-help-tip {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 7px 10px;
+  border: 1px solid #23303d;
+  border-radius: 8px;
+  background: #121a23;
+  font-size: 11.5px;
+  line-height: 1.6;
+}
+.dc-help-tip b { color: #9ad0ff; font-weight: 700; }
+.dc-help-tip span { color: var(--text-dim); }
+
+/* ================================================================== */
+/* 嵌入模式（侧栏 iframe 里用 ?embed=1 打开）                          */
+/* ================================================================== */
+/* 宿主 shellHtml 会给 <html> 加 class="is-embed"。侧栏 iframe 的可视高度
+   通常比独立窗口小得多，所以嵌入时把默认窗口整体上移并略缩小，避免客户
+   在侧栏里只看到半截窗口、还得先拖一下才能用。 */
+html.is-embed .dc-win-bar { height: 26px; }
+html.is-embed .dc-menubar { padding: 2px 6px; }
+html.is-embed .dc-menubar-title,
+html.is-embed .dc-menubar-btn { height: 22px; font-size: 11px; }
+html.is-embed .dc-help-step { gap: 1px; }
+html.is-embed .dc-help-body { font-size: 11px; }
