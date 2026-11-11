@@ -2299,7 +2299,8 @@ function renderProbeRows() {
   if (state.channels.length === 0) {
     ui.probeRows.appendChild(el('div', {
       class: 'dc-probe-empty',
-      text: '点下面的"+ 电压通道"或"+ 电流通道"。电压通道接两个探头（正端−负端），电流通道选一个元件。',
+      // 措辞跟着实际布局走：按钮在探头行之上，所以是"上面"。
+      text: '点上面的"+ 电压通道"或"+ 电流通道"。电压通道接两个探头（正端−负端），电流通道选一个元件。',
     }))
     return
   }
