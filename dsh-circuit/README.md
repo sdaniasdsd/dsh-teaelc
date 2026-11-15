@@ -48,7 +48,7 @@ dsh plugin --profile web add @commonworks/dsh-circuit
 ```powershell
 cd dsh-circuit
 npm test              # 21 条：路由 / 清单契约 / Host 栅栏（纯 node，无浏览器）
-npm run test:browser  # 74 条：真 Chrome 跑真页面，分五个套件
+npm run test:browser  # 60 条：真 Chrome 跑真页面，分五个套件
 ```
 
 `test:browser` 需要本机有 Chrome（脚本在 `dev-tools/browser/`），它会：
@@ -60,6 +60,14 @@ npm run test:browser  # 74 条：真 Chrome 跑真页面，分五个套件
 | 客户流程 | 完全按"第一次用"的顺序走：看帮助 → 放电源/电阻/接地 → 接通道 → 滚轮缩放 → 框选放大 → 加载经典电路，每步断言看得见的结果 |
 | 跨电路串号 | 换电路后旧通道必须报断线，不得静默读到新电路里同序号元件的数值 |
 | 小屏适配 | 1366×768 下五个窗口全部在可视区内 |
+
+**也可以对"已发布的 tgz"跑同一套验收**，从而抓出"打包时漏文件"这类只在客户机上
+才暴露的问题（`serve.mjs` 支持 `CIRCUIT_LIB` 指向已安装的那份）：
+
+```powershell
+$env:CIRCUIT_LIB = "file:///C:/temp/fresh/node_modules/@commonworks/dsh-circuit/lib/index.js"
+node dev-tools/browser/customer-flow.mjs
+```
 
 ## 它能做什么
 

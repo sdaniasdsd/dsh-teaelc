@@ -3,7 +3,10 @@
  * 目的：脱离 DSH 宿主（GUI 有 401 鉴权）也能跑真实渲染，测到的就是插件自己的行为。
  */
 import { createServer } from 'node:http'
-import { apply } from '../../dsh-circuit/lib/index.js'
+// 允许用环境变量指向"已安装的那份"，从而对**发布包**跑同一套验收，
+// 而不是只对工作区源码跑（后者无法发现"打包时漏文件"这类只在客户机上暴露的问题）。
+const LIB = process.env.CIRCUIT_LIB || '../../dsh-circuit/lib/index.js'
+const { apply } = await import(LIB)
 
 function createFakeWebServer() {
   const routes = { exact: new Map(), prefix: new Map() }
