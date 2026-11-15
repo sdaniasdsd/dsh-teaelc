@@ -20,7 +20,17 @@
  */
 
 window.__ModuleLoader__.load({
-  id: 'dsh-circuit',
+  // 这里的 id **必须是全限定包名**，与 package.json 的 name、cordis.patch.yml 的
+  // name、模块图里的 row.id 完全一致。
+  //
+  // 踩过的坑（0.1.3 侧边栏不出现的真正原因）：
+  //   client-modules 的 register() 用 registration.id 作为 factories 表的键，
+  //   而模块图里的 row.id 是 `@commonworks/dsh-circuit`。这里写裸名
+  //   `dsh-circuit` 会让同一个 bundle 被当成两个不同的键，宿主装载时直接抛
+  //   `duplicate factory registration for "dsh-circuit"`，随后
+  //   `web boot: 1 entry did not activate` —— 表现就是侧边栏没有入口，
+  //   而 Host 路由 /dsh-circuit/ 却是 200（所以只看路由会误判成"装好了"）。
+  id: '@commonworks/dsh-circuit',
   factory: (require) => {
     var module = { exports: {} }
     var exports = module.exports

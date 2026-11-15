@@ -20,6 +20,13 @@ const suites = [
   ['小屏适配（1366×768）', 'node', ['small-screen.mjs'], '.'],
 ]
 
+// 隔离宿主套件是可选的：需要有跑在 7999 的隔离实例（dev-tools/browser/iso-verify.mjs）。
+// 没起就跳过，不让主流程因为环境缺失而变红。
+const OPTIONAL = new Set(['隔离宿主（侧栏真的出现）'])
+if (process.env.CIRCUIT_ISO === '1') {
+  suites.push(['隔离宿主（侧栏真的出现）', 'node', ['iso-verify.mjs'], '.'])
+}
+
 const failures = []
 for (const [name, cmd, args, cwd] of suites) {
   console.log('\n' + '='.repeat(64))
@@ -32,7 +39,10 @@ for (const [name, cmd, args, cwd] of suites) {
   for (const l of lines) {
     if (/^\s*(PASS|FAIL)|\u2139 (tests|pass|fail)|==== \d+\/\d+|FAILED:|^ - /.test(l)) console.log(l)
   }
-  if (r.status !== 0) { failures.push(name); console.log('>>> 退出码', r.status) }
+  if (r.status !== 0) {
+    if (OPTIONAL.has(name)) console.log('>>> (可选套件失败)', name)
+    else { failures.push(name); console.log('>>> 退出码', r.status) }
+  }
 }
 
 console.log('\n' + '='.repeat(64))

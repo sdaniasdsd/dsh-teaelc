@@ -32,3 +32,4 @@ probe.txt
 
 # 浏览器验收脚本的截图产物（dev-tools/browser/run-all.mjs 可重新生成）
 dev-tools/browser/out/
+dev-tools/browser/asar-header.json

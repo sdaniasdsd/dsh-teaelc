@@ -53,6 +53,26 @@ describe('dsh-circuit 客户端清单', () => {
     }
   })
 
+  // ---- 0.1.3 事故 2：bundle 的 id 写成裸名 -----------------------------
+  // 症状：客户端模块装载抛 `duplicate factory registration for "dsh-circuit"`，
+  // 随后 `web boot: 1 entry did not activate` → **侧边栏没有入口**，但 Host 路由
+  // `/dsh-circuit/` 仍是 200。只看路由的测试会把这种情况判成"装好了"，所以这里
+  // 直接断言：bundle 里的 id 必须与 package.json 的 name 逐字相同。
+  //
+  // client-modules 的 register() 用 registration.id 作 factories 表的键，而模块图
+  // 行的 id 是包名。裸名会让同一个 bundle 占两个键，注册即抛。
+  it('bundle 注册 id 必须是全限定包名，与 package.json 的 name 逐字一致', () => {
+    const m = /__ModuleLoader__\.load\(\{[\s\S]*?id:\s*['"]([^'"]+)['"]/.exec(clientSource)
+    assert.ok(m, 'client bundle 必须调用 __ModuleLoader__.load({ id, factory })')
+    assert.equal(
+      m[1],
+      manifest.name,
+      `bundle 的 id 必须是 "${manifest.name}"（全限定包名），实际是 "${m[1]}"。` +
+        '写成裸名会让宿主抛 duplicate factory registration，结果是侧边栏没有入口、' +
+        '但 /dsh-circuit/ 路由仍返回 200 —— 这类"看着装好了其实没挂上"最难查。',
+    )
+  })
+
   it('客户端 bundle 自己能声明 inject，且只声明真实服务名', () => {
     // 客户端模块 exports.inject 用的是「服务名」而不是包名（如 'slots'），
     // 所以这里只校验它存在且是非空字符串数组，并把 'slots' 列为已知服务。

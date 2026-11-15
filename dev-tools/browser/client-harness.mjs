@@ -106,8 +106,14 @@ const out = await page.evaluate(async (src) => {
   window.__ModuleLoader__.create()
   report.registeredIds = [...registered.keys()]
 
-  const reg = registered.get('dsh-circuit')
-  if (!reg) { report.errors.push('client.js 没有注册 id="dsh-circuit"'); return report }
+  // 宿主模块图里的 row.id 是全限定包名；裸名 `dsh-circuit` 会被当成另一个键，
+// 导致 duplicate factory registration（0.1.3 侧栏不出现的原因）。
+  const PKG_ID = '@commonworks/dsh-circuit'
+  const reg = registered.get(PKG_ID)
+  if (!reg) {
+    report.errors.push('client.js 没有注册 id="' + PKG_ID + '"，实际注册了: ' + JSON.stringify([...registered.keys()]))
+    return report
+  }
 
   const requireStub = (name) => {
     if (name === 'react' || name === 'react/jsx-runtime') return reactStub
@@ -162,7 +168,8 @@ console.log('\n== 客户端半边装载 ==')
 console.log(JSON.stringify(out, null, 2))
 
 console.log('\n== 断言 ==')
-check('client.js 注册了 id="dsh-circuit"', out.registeredIds.includes('dsh-circuit'), out.registeredIds)
+check('client.js 注册 id 是全限定包名（与模块图 row.id 一致）',
+  out.registeredIds.includes('@commonworks/dsh-circuit'), out.registeredIds)
 check('factory 没有抛异常', out.errors.filter((e) => /factory threw/.test(e)).length === 0, out.errors.join(' | '))
 check('导出 apply 函数', out.hasApply === true)
 check('导出的 inject 只有 slots（服务名，不是包名）',
